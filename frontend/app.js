@@ -1,60 +1,255 @@
 const API_BASE_URL = (window.API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
 
-const form = document.querySelector("#chat-form");
-const input = document.querySelector("#prompt");
-const messagesContainer = document.querySelector("#messages");
-const sendButton = document.querySelector("#send-button");
-const clearButton = document.querySelector("#clear-button");
+const roleForm = document.querySelector("#role-form");
+const roleDescription = document.querySelector("#role-description");
+const analyzeButton = document.querySelector("#analyze-button");
+const clarificationSection = document.querySelector("#clarification-section");
+const clarificationForm = document.querySelector("#clarification-form");
+const clarificationButton = document.querySelector("#clarification-button");
+const questionsContainer = document.querySelector("#questions");
+const analysisSection = document.querySelector("#analysis-section");
+const analysisTitle = document.querySelector("#analysis-title");
+const roleSummary = document.querySelector("#role-summary");
+const taskCount = document.querySelector("#task-count");
+const tasksContainer = document.querySelector("#tasks");
+const assumptionsSection = document.querySelector("#assumptions-section");
+const assumptionsContainer = document.querySelector("#global-assumptions");
+const resetButton = document.querySelector("#reset-button");
 const status = document.querySelector("#status");
 
-let messages = [];
+let currentRoleDescription = "";
+let currentQuestions = [];
 let isBusy = false;
+
+const recommendationLabels = {
+  human: "Оставить человеку",
+  automate: "Автоматизировать",
+  contractor: "Передать подрядчику",
+};
 
 function setStatus(message, kind = "") {
   status.textContent = message;
   status.dataset.kind = kind;
 }
 
-function renderMessages() {
-  messagesContainer.replaceChildren();
+function setBusy(value) {
+  isBusy = value;
+  for (const element of roleForm.querySelectorAll("textarea, button")) {
+    element.disabled = value;
+  }
+  for (const element of clarificationForm.querySelectorAll("textarea, button")) {
+    element.disabled = value;
+  }
+  resetButton.disabled = value;
+  analyzeButton.textContent = value ? "Анализируем…" : "Проанализировать роль";
+  clarificationButton.textContent = value
+    ? "Анализируем…"
+    : "Продолжить анализ";
+}
 
-  if (messages.length === 0) {
-    const emptyState = document.createElement("div");
-    emptyState.className = "empty-state";
-    emptyState.innerHTML =
-      '<div class="empty-icon" aria-hidden="true">✧</div>' +
-      "<h2>Начните диалог</h2>" +
-      "<p>Задайте вопрос — история останется в этом окне.</p>";
-    messagesContainer.append(emptyState);
+function errorMessage(data) {
+  if (typeof data.detail === "string") {
+    return data.detail;
+  }
+  if (Array.isArray(data.detail)) {
+    return data.detail
+      .map((item) => item.msg || "Некорректное значение")
+      .join("; ");
+  }
+  return "Не удалось выполнить анализ";
+}
+
+async function requestAnalysis(payload) {
+  const response = await fetch(`${API_BASE_URL}/api/role-analysis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(errorMessage(data));
+  }
+  return data;
+}
+
+function renderQuestions(questions) {
+  currentQuestions = questions;
+  questionsContainer.replaceChildren();
+
+  questions.forEach((question, index) => {
+    const field = document.createElement("label");
+    field.className = "form-field";
+    field.htmlFor = `clarification-${index}`;
+
+    const caption = document.createElement("span");
+    caption.textContent = question;
+
+    const answer = document.createElement("textarea");
+    answer.id = `clarification-${index}`;
+    answer.rows = 3;
+    answer.required = true;
+    answer.dataset.questionIndex = String(index);
+    answer.placeholder = "Ваш ответ…";
+
+    field.append(caption, answer);
+    questionsContainer.append(field);
+  });
+}
+
+function renderAssumptions(assumptions) {
+  assumptionsContainer.replaceChildren();
+  if (!assumptions.length) {
+    assumptionsSection.hidden = true;
     return;
   }
 
-  for (const message of messages) {
-    const messageElement = document.createElement("article");
-    messageElement.className = `message ${message.role}`;
+  for (const assumption of assumptions) {
+    const item = document.createElement("li");
+    item.textContent = assumption;
+    assumptionsContainer.append(item);
+  }
+  assumptionsSection.hidden = false;
+}
 
-    const author = document.createElement("div");
-    author.className = "message-author";
-    author.textContent = message.role === "assistant" ? "DeepSeek" : "Вы";
+function renderTask(task) {
+  const card = document.createElement("article");
+  card.className = "task-card";
 
-    const content = document.createElement("p");
-    content.className = "message-content";
-    content.textContent = message.content;
+  const header = document.createElement("div");
+  header.className = "task-header";
 
-    messageElement.append(author, content);
-    messagesContainer.append(messageElement);
+  const title = document.createElement("h3");
+  title.textContent = task.title;
+
+  const recommendation = document.createElement("span");
+  recommendation.className = `recommendation ${task.recommendation}`;
+  recommendation.textContent =
+    recommendationLabels[task.recommendation] || task.recommendation;
+  header.append(title, recommendation);
+
+  const description = document.createElement("p");
+  description.className = "task-description";
+  description.textContent = task.description;
+
+  const rationaleLabel = document.createElement("strong");
+  rationaleLabel.textContent = "Почему:";
+
+  const rationale = document.createElement("p");
+  rationale.className = "task-rationale";
+  rationale.append(rationaleLabel, document.createTextNode(` ${task.rationale}`));
+
+  card.append(header, description, rationale);
+
+  if (task.assumptions.length) {
+    const assumptions = document.createElement("p");
+    assumptions.className = "task-assumptions";
+    assumptions.textContent = `Предположение: ${task.assumptions.join("; ")}`;
+    card.append(assumptions);
   }
 
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  return card;
 }
 
-function setBusy(value) {
-  isBusy = value;
-  input.disabled = value;
-  sendButton.disabled = value;
-  clearButton.disabled = value;
-  sendButton.textContent = value ? "Ждём…" : "Отправить";
+function renderAnalysis(analysis) {
+  analysisTitle.textContent = analysis.role_title;
+  roleSummary.textContent = analysis.role_summary;
+  taskCount.textContent = `${analysis.tasks.length} задач`;
+  tasksContainer.replaceChildren(...analysis.tasks.map(renderTask));
+  renderAssumptions(analysis.global_assumptions);
+  analysisSection.hidden = false;
 }
+
+function showClarifications(questions) {
+  renderQuestions(questions);
+  analysisSection.hidden = true;
+  clarificationSection.hidden = false;
+  document.querySelector("#clarification-0")?.focus();
+}
+
+function showReady(analysis) {
+  clarificationSection.hidden = true;
+  renderAnalysis(analysis);
+  resetButton.hidden = false;
+  setStatus("Анализ готов");
+}
+
+async function submitAnalysis(payload) {
+  if (isBusy) {
+    return;
+  }
+
+  setBusy(true);
+  setStatus("Проверяем описание роли…");
+
+  try {
+    const data = await requestAnalysis(payload);
+    if (data.status === "needs_clarification") {
+      showClarifications(data.questions);
+      setStatus("Нужно уточнить несколько деталей");
+    } else if (data.status === "ready" && data.analysis) {
+      showReady(data.analysis);
+    } else {
+      throw new Error("Сервис вернул неизвестный формат ответа");
+    }
+  } catch (error) {
+    setStatus(error.message || "Не удалось выполнить анализ", "error");
+  } finally {
+    setBusy(false);
+  }
+}
+
+roleForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const description = roleDescription.value.trim();
+  if (!description || isBusy) {
+    return;
+  }
+
+  currentRoleDescription = description;
+  currentQuestions = [];
+  clarificationSection.hidden = true;
+  analysisSection.hidden = true;
+  resetButton.hidden = true;
+  submitAnalysis({ role_description: description });
+});
+
+clarificationForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (isBusy || !currentRoleDescription) {
+    return;
+  }
+
+  const answers = [...questionsContainer.querySelectorAll("textarea")].map(
+    (input, index) => ({
+      question: currentQuestions[index],
+      answer: input.value.trim(),
+    }),
+  );
+  if (answers.some((item) => !item.answer)) {
+    return;
+  }
+
+  submitAnalysis({
+    role_description: currentRoleDescription,
+    clarification_answers: answers,
+  });
+});
+
+resetButton.addEventListener("click", () => {
+  currentRoleDescription = "";
+  currentQuestions = [];
+  roleForm.reset();
+  questionsContainer.replaceChildren();
+  tasksContainer.replaceChildren();
+  assumptionsContainer.replaceChildren();
+  clarificationSection.hidden = true;
+  analysisSection.hidden = true;
+  assumptionsSection.hidden = true;
+  resetButton.hidden = true;
+  setStatus("Готов к новому анализу");
+  roleDescription.focus();
+});
 
 async function checkHealth() {
   try {
@@ -62,77 +257,16 @@ async function checkHealth() {
     if (!response.ok) {
       throw new Error();
     }
-
     const data = await response.json();
     setStatus(
       data.deepseek_configured
-        ? "Готов к диалогу"
+        ? "Готов к анализу"
         : "Нужен ключ DeepSeek",
       data.deepseek_configured ? "" : "warning",
     );
   } catch {
-    setStatus("Бэкенд недоступен", "error");
+    setStatus("Backend недоступен", "error");
   }
 }
 
-async function handleSubmit(event) {
-  event.preventDefault();
-  const content = input.value.trim();
-
-  if (!content || isBusy) {
-    return;
-  }
-
-  messages.push({ role: "user", content });
-  input.value = "";
-  renderMessages();
-  setBusy(true);
-  setStatus("DeepSeek печатает…");
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages }),
-    });
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(data.detail || "Не удалось получить ответ");
-    }
-    if (!data.message?.content) {
-      throw new Error("DeepSeek вернул пустой ответ");
-    }
-
-    messages.push(data.message);
-    renderMessages();
-    setStatus("Готов к диалогу");
-  } catch (error) {
-    messages.pop();
-    input.value = content;
-    renderMessages();
-    setStatus(error.message, "error");
-  } finally {
-    setBusy(false);
-    input.focus();
-  }
-}
-
-form.addEventListener("submit", handleSubmit);
-
-input.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-    form.requestSubmit();
-  }
-});
-
-clearButton.addEventListener("click", () => {
-  messages = [];
-  renderMessages();
-  setStatus("История очищена");
-  input.focus();
-});
-
-renderMessages();
 checkHealth();

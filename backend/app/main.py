@@ -2,29 +2,23 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
 
-from .llm import complete
+from .providers.deepseek import (
+    DeepSeekProvider,
+    LlmConfigurationError,
+    LlmRequestError,
+)
+from .schemas import RoleAnalysisRequest, RoleAnalysisResponse
+from .services.role_analyzer import (
+    InvalidModelResponse,
+    RoleAnalysisService,
+)
 
 
 logger = logging.getLogger(__name__)
-
-
-class ChatMessage(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=12_000)
-
-
-class ChatRequest(BaseModel):
-    messages: list[ChatMessage]
-
-
-class ChatResponse(BaseModel):
-    message: ChatMessage
 
 
 def _allowed_origins() -> list[str]:
@@ -32,14 +26,10 @@ def _allowed_origins() -> list[str]:
     if not configured_origins:
         return ["http://localhost:3000", "http://127.0.0.1:3000"]
 
-    return [
-        origin.strip()
-        for origin in configured_origins.split(",")
-        if origin.strip()
-    ]
+    return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
 
 
-app = FastAPI(title="AI Challenge 1 API")
+app = FastAPI(title="FlowScout API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins(),
@@ -47,6 +37,10 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+
+
+def get_role_analysis_service() -> RoleAnalysisService:
+    return RoleAnalysisService(DeepSeekProvider())
 
 
 @app.get("/api/health")
@@ -57,42 +51,27 @@ def health() -> dict[str, bool | str]:
     }
 
 
-@app.post("/api/chat", response_model=ChatResponse)
-def chat(request: ChatRequest) -> ChatResponse:
-    if not request.messages:
-        raise HTTPException(status_code=400, detail="Messages must not be empty")
-    if len(request.messages) > 50:
-        raise HTTPException(status_code=400, detail="Too many messages")
-    if request.messages[-1].role != "user":
-        raise HTTPException(
-            status_code=400,
-            detail="The last message must be from the user",
-        )
-
-    messages = []
-    for message in request.messages:
-        content = message.content.strip()
-        if not content:
-            raise HTTPException(status_code=400, detail="Messages must not be empty")
-        messages.append({"role": message.role, "content": content})
-
+@app.post("/api/role-analysis", response_model=RoleAnalysisResponse)
+def role_analysis(
+    request: RoleAnalysisRequest,
+    service: RoleAnalysisService = Depends(get_role_analysis_service),
+) -> RoleAnalysisResponse:
     try:
-        answer = complete(messages)
-    except RuntimeError:
+        return service.analyze(request)
+    except LlmConfigurationError:
         raise HTTPException(
             status_code=503,
             detail="DeepSeek API is not configured",
         ) from None
-    except Exception:
-        logger.exception("DeepSeek request failed")
+    except LlmRequestError:
+        logger.exception("DeepSeek role analysis request failed")
         raise HTTPException(
             status_code=502,
             detail="DeepSeek request failed",
         ) from None
-
-    if not answer:
-        raise HTTPException(status_code=502, detail="DeepSeek returned an empty response")
-
-    return ChatResponse(
-        message=ChatMessage(role="assistant", content=answer),
-    )
+    except InvalidModelResponse:
+        logger.exception("DeepSeek returned an invalid role analysis")
+        raise HTTPException(
+            status_code=502,
+            detail="DeepSeek returned an invalid structured response",
+        ) from None
