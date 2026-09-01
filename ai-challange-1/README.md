@@ -5,7 +5,7 @@
 ## Запуск
 
 ```bash
-cd ai-challenge-0
+cd ai-challange-1
 python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
