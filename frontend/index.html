@@ -5,48 +5,107 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Веб-чат с DeepSeek для AI Challenge 1"
+      content="FlowScout анализирует задачи рабочей роли"
     />
-    <title>DeepSeek Chat</title>
+    <title>FlowScout — анализ роли</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app-shell">
-      <section class="chat-card" aria-label="DeepSeek Chat">
-        <header class="chat-header">
+      <section class="app-card" aria-labelledby="app-title">
+        <header class="app-header">
           <div class="brand">
             <div class="brand-mark" aria-hidden="true">✦</div>
             <div>
-              <h1>DeepSeek Chat</h1>
+              <p class="eyebrow">FlowScout</p>
+              <h1 id="app-title">Разбор рабочей роли</h1>
               <p id="status" class="status" role="status">Проверяем соединение…</p>
             </div>
           </div>
-          <button id="clear-button" class="button button-secondary" type="button">
-            Очистить
+          <button id="reset-button" class="button button-secondary" type="button" hidden>
+            Начать заново
           </button>
         </header>
 
-        <div
-          id="messages"
-          class="messages"
-          aria-live="polite"
-          aria-label="Сообщения чата"
-        ></div>
+        <div class="content">
+          <section class="intro" aria-labelledby="intro-title">
+            <p class="eyebrow">Первый шаг</p>
+            <h2 id="intro-title">Поймём, из чего состоит роль</h2>
+            <p>
+              Опишите обязанности человека обычным языком. FlowScout выделит
+              задачи и предложит, что оставить человеку, автоматизировать или
+              передать подрядчику.
+            </p>
+          </section>
 
-        <form id="chat-form" class="composer">
-          <label class="sr-only" for="prompt">Сообщение</label>
-          <textarea
-            id="prompt"
-            rows="1"
-            placeholder="Напишите сообщение…"
-            autocomplete="off"
-            required
-          ></textarea>
-          <button id="send-button" class="button button-primary" type="submit">
-            Отправить
-          </button>
-          <p class="composer-hint">Enter — отправить · Shift+Enter — новая строка</p>
-        </form>
+          <form id="role-form" class="role-form">
+            <label class="form-field" for="role-description">
+              <span>Описание роли</span>
+              <textarea
+                id="role-description"
+                rows="8"
+                minlength="10"
+                maxlength="12000"
+                placeholder="Например: операционный менеджер интернет-магазина принимает заявки, контролирует заказы, общается с поставщиками и готовит еженедельные отчёты…"
+                required
+              ></textarea>
+              <small>
+                Не добавляйте API-ключи и пароли. Чем конкретнее обязанности,
+                тем точнее получится анализ.
+              </small>
+            </label>
+            <button id="analyze-button" class="button button-primary" type="submit">
+              Проанализировать роль
+            </button>
+          </form>
+
+          <section
+            id="clarification-section"
+            class="result-section"
+            aria-labelledby="clarification-title"
+            hidden
+          >
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Нужно уточнение</p>
+                <h2 id="clarification-title">Помогите сделать вывод точнее</h2>
+              </div>
+            </div>
+            <p class="section-description">
+              Ответьте на вопросы ниже. Мы задаём только вопросы, которые могут
+              изменить рекомендацию по задачам.
+            </p>
+            <form id="clarification-form" class="clarification-form">
+              <div id="questions" class="questions"></div>
+              <button id="clarification-button" class="button button-primary" type="submit">
+                Продолжить анализ
+              </button>
+            </form>
+          </section>
+
+          <section
+            id="analysis-section"
+            class="result-section"
+            aria-labelledby="analysis-title"
+            hidden
+          >
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Результат</p>
+                <h2 id="analysis-title"></h2>
+              </div>
+              <span id="task-count" class="muted"></span>
+            </div>
+            <p id="role-summary" class="role-summary"></p>
+
+            <div id="assumptions-section" class="assumptions" hidden>
+              <h3>Общие предположения</h3>
+              <ul id="global-assumptions"></ul>
+            </div>
+
+            <div id="tasks" class="task-list"></div>
+          </section>
+        </div>
       </section>
     </main>
 
