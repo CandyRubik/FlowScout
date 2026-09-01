@@ -79,11 +79,15 @@ def test_parse_clarification_response() -> None:
     assert len(result.questions) == 1
 
 
-def test_system_prompt_requires_clarification_for_material_unknowns() -> None:
+def test_system_prompt_uses_calibrated_clarification_gate() -> None:
     prompt = role_analysis_system_prompt()
 
-    assert "mandatory clarification gate" in prompt.lower()
-    assert "do not silently choose an assumption" in prompt.lower()
+    assert "clarification is a last resort" in prompt.lower()
+    assert "missing information is not automatically ambiguity" in prompt.lower()
+    assert "fully design a" in prompt.lower()
+    assert "defer technical implementation questions" in prompt.lower()
+    assert "same recommendation remains safe" in prompt.lower()
+    assert "ask one concise, specific question by default" in prompt.lower()
     assert "candidate rejection" in prompt.lower()
 
 
