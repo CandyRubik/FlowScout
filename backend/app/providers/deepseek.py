@@ -14,6 +14,10 @@ class LlmRequestError(RuntimeError):
     """The provider rejected or failed to complete a request."""
 
 
+DEFAULT_MAX_TOKENS = 2_000
+DEFAULT_REASONING_EFFORT = "high"
+
+
 class DeepSeekProvider:
     def __init__(self, client: OpenAI | None = None) -> None:
         self._client = client
@@ -44,6 +48,10 @@ class DeepSeekProvider:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            "reasoning_effort": DEFAULT_REASONING_EFFORT,
+            "max_tokens": DEFAULT_MAX_TOKENS,
+            "stream": False,
+            "extra_body": {"thinking": {"type": "enabled"}},
         }
         if response_format is not None:
             request["response_format"] = response_format
