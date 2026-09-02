@@ -5,9 +5,11 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app, get_role_analysis_service
+from app.main import app, get_reasoning_stream_service, get_role_analysis_service
+from app.providers.deepseek import LlmStreamChunk
 from app.prompts import role_analysis_system_prompt
 from app.schemas import RoleAnalysisRequest
+from app.services.reasoning_stream import ReasoningStreamService
 from app.services.role_analyzer import (
     InvalidModelResponse,
     RoleAnalysisService,
@@ -54,6 +56,24 @@ class FakeProvider:
     def complete(self, **kwargs: object) -> str:
         self.calls.append(kwargs)
         return self.responses.pop(0)
+
+
+class FakeStreamingProvider:
+    def __init__(self, response: str) -> None:
+        self.response = response
+
+    def stream(self, **kwargs: object):
+        yield LlmStreamChunk(reasoning="Проверяю критерии. ")
+        yield LlmStreamChunk(content=self.response)
+
+
+class QueuedStreamingProvider:
+    def __init__(self, *responses: str) -> None:
+        self.responses = list(responses)
+
+    def stream(self, **kwargs: object):
+        yield LlmStreamChunk(reasoning="Проверяю критерии. ")
+        yield LlmStreamChunk(content=self.responses.pop(0))
 
 
 def test_parse_ready_response() -> None:
@@ -194,3 +214,77 @@ def test_role_analysis_endpoint_validates_input() -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_role_analysis_stream_endpoint_returns_sse_events() -> None:
+    provider = FakeStreamingProvider(ready_response())
+    stream_service = ReasoningStreamService(provider, max_attempts=1)
+    app.dependency_overrides[get_reasoning_stream_service] = lambda: stream_service
+    try:
+        response = TestClient(app).post(
+            "/api/role-analysis?stream=true",
+            json={"role_description": ROLE_DESCRIPTION},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert "event: reasoning" in response.text
+    assert "Проверяю критерии." in response.text
+    assert "event: done" in response.text
+
+
+def test_step_by_step_endpoint_uses_streaming_route() -> None:
+    provider = FakeStreamingProvider(ready_response())
+    stream_service = ReasoningStreamService(provider, max_attempts=1)
+    app.dependency_overrides[get_reasoning_stream_service] = lambda: stream_service
+    try:
+        response = TestClient(app).post(
+            "/api/reasoning/step-by-step",
+            json={"task": ROLE_DESCRIPTION},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "event: reasoning" in response.text
+    assert "event: done" in response.text
+
+
+def test_prompt_generated_endpoint_streams_prompt_then_solution() -> None:
+    provider = QueuedStreamingProvider(
+        "Сначала проверь повторяемость задачи.",
+        ready_response(),
+    )
+    stream_service = ReasoningStreamService(provider, max_attempts=1)
+    app.dependency_overrides[get_reasoning_stream_service] = lambda: stream_service
+    try:
+        response = TestClient(app).post(
+            "/api/reasoning/prompt-generated",
+            json={"task": ROLE_DESCRIPTION},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "event: prompt" in response.text
+    assert "event: prompt_ready" in response.text
+    assert "event: done" in response.text
+
+
+def test_expert_endpoint_returns_each_expert_result() -> None:
+    provider = QueuedStreamingProvider(ready_response(), ready_response(), ready_response())
+    stream_service = ReasoningStreamService(provider, max_attempts=1)
+    app.dependency_overrides[get_reasoning_stream_service] = lambda: stream_service
+    try:
+        response = TestClient(app).post(
+            "/api/reasoning/experts",
+            json={"task": ROLE_DESCRIPTION},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.text.count("event: expert_done") == 3
+    assert "event: done" in response.text

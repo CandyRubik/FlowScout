@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="FlowScout анализирует задачи рабочей роли"
+      content="FlowScout анализирует задачи рабочей роли разными способами"
     />
     <title>FlowScout — анализ роли</title>
     <link rel="stylesheet" href="styles.css" />
@@ -28,82 +28,135 @@
         </header>
 
         <div class="content">
-          <section class="intro" aria-labelledby="intro-title">
-            <p class="eyebrow">Первый шаг</p>
-            <h2 id="intro-title">Поймём, из чего состоит роль</h2>
-            <p>
-              Опишите обязанности человека обычным языком. FlowScout выделит
-              задачи и предложит, что оставить человеку, автоматизировать или
-              передать подрядчику.
-            </p>
-          </section>
-
-          <form id="role-form" class="role-form">
-            <label class="form-field" for="role-description">
-              <span>Описание роли</span>
-              <textarea
-                id="role-description"
-                rows="8"
-                minlength="10"
-                maxlength="12000"
-                placeholder="Например: операционный менеджер интернет-магазина принимает заявки, контролирует заказы, общается с поставщиками и готовит еженедельные отчёты…"
-                required
-              ></textarea>
-              <small>
-                Не добавляйте API-ключи и пароли. Чем конкретнее обязанности,
-                тем точнее получится анализ.
-              </small>
-            </label>
-            <button id="analyze-button" class="button button-primary" type="submit">
-              Проанализировать роль
-            </button>
-          </form>
-
-          <section
-            id="clarification-section"
-            class="result-section"
-            aria-labelledby="clarification-title"
-            hidden
-          >
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Нужно уточнение</p>
-                <h2 id="clarification-title">Помогите сделать вывод точнее</h2>
-              </div>
+          <section id="onboarding-section" class="onboarding-section" aria-labelledby="intro-title">
+            <div class="intro">
+              <p class="eyebrow">Первый шаг</p>
+              <h2 id="intro-title">Выберите способ анализа</h2>
+              <p>
+                В обычном режиме FlowScout разбирает роль и задаёт уточняющие
+                вопросы. В режиме сравнения один и тот же запрос отправляется
+                несколькими способами, а рассуждения появляются в отдельных
+                карточках в реальном времени.
+              </p>
             </div>
-            <p class="section-description">
-              Ответьте на вопросы ниже. Мы задаём только вопросы, которые могут
-              изменить рекомендацию по задачам.
-            </p>
-            <form id="clarification-form" class="clarification-form">
-              <div id="questions" class="questions"></div>
-              <button id="clarification-button" class="button button-primary" type="submit">
-                Продолжить анализ
+
+            <form id="role-form" class="role-form">
+              <label class="form-field" for="role-description">
+                <span id="description-label">Описание роли</span>
+                <textarea
+                  id="role-description"
+                  rows="8"
+                  minlength="10"
+                  maxlength="12000"
+                  placeholder="Например: операционный менеджер интернет-магазина принимает заявки, контролирует заказы, общается с поставщиками и готовит еженедельные отчёты…"
+                  required
+                ></textarea>
+                <small id="description-help">
+                  Не добавляйте API-ключи и пароли. Чем конкретнее обязанности,
+                  тем точнее получится анализ.
+                </small>
+              </label>
+
+              <fieldset class="mode-picker">
+                <legend>Режим работы</legend>
+                <label class="mode-option">
+                  <input type="radio" name="mode" value="standard" checked />
+                  <span class="mode-option-body">
+                    <strong>Обычный анализ</strong>
+                    <span>Текущий сценарий FlowScout с уточняющими вопросами.</span>
+                  </span>
+                </label>
+                <label class="mode-option">
+                  <input type="radio" name="mode" value="comparison" />
+                  <span class="mode-option-body">
+                    <strong>Сравнить рассуждения</strong>
+                    <span>Одна задача, четыре способа и потоковые ответы рядом.</span>
+                  </span>
+                </label>
+              </fieldset>
+
+              <div id="comparison-options" class="comparison-options" hidden>
+                <div>
+                  <h3>Способы для сравнения</h3>
+                  <p>Можно оставить все варианты или выбрать только нужные.</p>
+                </div>
+                <label class="method-option">
+                  <input type="checkbox" name="comparison-method" value="direct" checked />
+                  <span><strong>Прямой ответ</strong><small>Существующая ручка и system prompt</small></span>
+                </label>
+                <label class="method-option">
+                  <input type="checkbox" name="comparison-method" value="step-by-step" checked />
+                  <span><strong>Пошаговое решение</strong><small>Модель явно проверяет критерии по шагам</small></span>
+                </label>
+                <label class="method-option">
+                  <input type="checkbox" name="comparison-method" value="prompt-generated" checked />
+                  <span><strong>Сгенерированный промпт</strong><small>Сначала prompt engineer, затем решение</small></span>
+                </label>
+                <label class="method-option">
+                  <input type="checkbox" name="comparison-method" value="experts" checked />
+                  <span><strong>Группа экспертов</strong><small>Аналитик, инженер и критик</small></span>
+                </label>
+              </div>
+
+              <button id="submit-button" class="button button-primary" type="submit">
+                Проанализировать роль
               </button>
             </form>
           </section>
 
-          <section
-            id="analysis-section"
-            class="result-section"
-            aria-labelledby="analysis-title"
-            hidden
-          >
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Результат</p>
-                <h2 id="analysis-title"></h2>
+          <section id="standard-results" class="result-section" hidden>
+            <section
+              id="clarification-section"
+              aria-labelledby="clarification-title"
+              hidden
+            >
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Нужно уточнение</p>
+                  <h2 id="clarification-title">Помогите сделать вывод точнее</h2>
+                </div>
               </div>
-              <span id="task-count" class="muted"></span>
-            </div>
-            <p id="role-summary" class="role-summary"></p>
+              <p class="section-description">
+                Ответьте на вопросы ниже. Мы задаём только вопросы, которые могут
+                изменить рекомендацию по задачам.
+              </p>
+              <form id="clarification-form" class="clarification-form">
+                <div id="questions" class="questions"></div>
+                <button id="clarification-button" class="button button-primary" type="submit">
+                  Продолжить анализ
+                </button>
+              </form>
+            </section>
 
-            <div id="assumptions-section" class="assumptions" hidden>
-              <h3>Общие предположения</h3>
-              <ul id="global-assumptions"></ul>
-            </div>
+            <section id="analysis-section" aria-labelledby="analysis-title" hidden>
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Результат</p>
+                  <h2 id="analysis-title"></h2>
+                </div>
+                <span id="task-count" class="muted"></span>
+              </div>
+              <p id="role-summary" class="role-summary"></p>
 
-            <div id="tasks" class="task-list"></div>
+              <div id="assumptions-section" class="assumptions" hidden>
+                <h3>Общие предположения</h3>
+                <ul id="global-assumptions"></ul>
+              </div>
+
+              <div id="tasks" class="task-list"></div>
+            </section>
+          </section>
+
+          <section id="comparison-section" class="comparison-section" aria-labelledby="comparison-title" hidden>
+            <div class="section-heading comparison-heading">
+              <div>
+                <p class="eyebrow">Лаборатория рассуждений</p>
+                <h2 id="comparison-title">Сравниваем ответы в реальном времени</h2>
+                <p id="comparison-task" class="section-description"></p>
+              </div>
+              <span id="comparison-count" class="muted"></span>
+            </div>
+            <div id="comparison-grid" class="comparison-grid"></div>
           </section>
         </div>
       </section>
