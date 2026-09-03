@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="FlowScout анализирует задачи рабочей роли"
+      content="FlowScout превращает описание роли в основу автоматизированного n8n-пайплайна"
     />
-    <title>FlowScout — анализ роли</title>
-    <link rel="stylesheet" href="styles.css" />
+    <title>FlowScout — роль в n8n-пайплайн</title>
+    <link rel="stylesheet" href="styles.css?v=judge-cards" />
   </head>
   <body>
     <main class="app-shell">
@@ -17,98 +17,470 @@
           <div class="brand">
             <div class="brand-mark" aria-hidden="true">✦</div>
             <div>
-              <p class="eyebrow">FlowScout</p>
-              <h1 id="app-title">Разбор рабочей роли</h1>
+              <p class="eyebrow">FlowScout / ROLE → N8N</p>
+              <h1 id="app-title">Конструктор автоматизации</h1>
               <p id="status" class="status" role="status">Проверяем соединение…</p>
             </div>
           </div>
           <button id="reset-button" class="button button-secondary" type="button" hidden>
-            Начать заново
+            Новая проверка
           </button>
         </header>
 
         <div class="content">
           <section class="intro" aria-labelledby="intro-title">
-            <p class="eyebrow">Первый шаг</p>
-            <h2 id="intro-title">Поймём, из чего состоит роль</h2>
-            <p>
-              Опишите обязанности человека обычным языком. FlowScout выделит
-              задачи и предложит, что оставить человеку, автоматизировать или
-              передать подрядчику.
+            <div class="intro-orbit" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <p class="eyebrow">Описание роли → автоматизированный процесс</p>
+            <h2 id="intro-title">Превратите роль в работающий процесс.</h2>
+            <p id="intro-description">
+              Опишите, чем занят человек. FlowScout разложит роль на повторяемые
+              задачи, найдёт точки автоматизации и подготовит основу пайплайна для n8n.
             </p>
           </section>
 
-          <form id="role-form" class="role-form">
-            <label class="form-field" for="role-description">
-              <span>Описание роли</span>
-              <textarea
-                id="role-description"
-                rows="8"
-                minlength="10"
-                maxlength="12000"
-                placeholder="Например: операционный менеджер интернет-магазина принимает заявки, контролирует заказы, общается с поставщиками и готовит еженедельные отчёты…"
-                required
-              ></textarea>
-              <small>
-                Не добавляйте API-ключи и пароли. Чем конкретнее обязанности,
-                тем точнее получится анализ.
+          <section class="onboarding" aria-labelledby="onboarding-title">
+            <div class="onboarding-lede">
+              <p class="eyebrow">Что делает FlowScout</p>
+              <h2 id="onboarding-title">Из человеческой работы — в понятную автоматизацию</h2>
+              <p>
+                Не нужно заранее знать, какие шаги вынести в код. Достаточно описать
+                роль и контекст — система сама выделит рутину, решения и точки интеграции.
+              </p>
+            </div>
+            <div class="onboarding-value">
+              <span class="value-mark" aria-hidden="true">→</span>
+              <div>
+                <span class="value-label">Главная ценность</span>
+                <p>
+                  Сохраняем контекст роли и превращаем рутину в запускаемый n8n-сценарий
+                  с понятными границами ответственности.
+                </p>
+              </div>
+            </div>
+            <div class="onboarding-steps" aria-label="Этапы превращения роли в n8n-пайплайн">
+              <article class="onboarding-step">
+                <span class="step-index">01</span>
+                <div>
+                  <h3>Опишите роль</h3>
+                  <p>Расскажите, что человек делает и с какими системами работает.</p>
+                </div>
+              </article>
+              <article class="onboarding-step">
+                <span class="step-index">02</span>
+                <div>
+                  <h3>Найдём точки автоматизации</h3>
+                  <p>Отделим повторяемую рутину от решений, где нужен человек.</p>
+                </div>
+              </article>
+              <article class="onboarding-step">
+                <span class="step-index">03</span>
+                <div>
+                  <h3>Соберём n8n-пайплайн</h3>
+                  <p>Получите понятную схему автоматизированного процесса.</p>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <form id="task-form" class="task-form">
+            <label class="form-field" for="task-input">
+              <span class="field-heading">
+                <span>Описание роли</span>
+                <span class="field-meta">Обязанности · системы · регулярные процессы</span>
+              </span>
+              <span class="textarea-shell">
+                <textarea
+                  id="task-input"
+                  rows="5"
+                  minlength="10"
+                  maxlength="12000"
+                  placeholder="Например: операционный менеджер принимает заявки, контролирует заказы, сверяет данные в CRM и готовит еженедельный отчёт…"
+                  required
+                ></textarea>
+              </span>
+              <small id="input-hint">
+                Опишите роль обычным языком: задачи, инструменты, частоту и ожидаемый
+                результат. Не добавляйте API-ключи и пароли.
               </small>
             </label>
-            <button id="analyze-button" class="button button-primary" type="submit">
-              Проанализировать роль
-            </button>
+            <div class="form-actions">
+              <button id="start-button" class="button button-primary" type="submit">
+                <span>Разобрать роль</span>
+                <span class="button-spark" aria-hidden="true">↗</span>
+              </button>
+              <span class="form-note"><span class="note-dot"></span>Агенты выделят точки автоматизации</span>
+            </div>
           </form>
 
           <section
-            id="clarification-section"
-            class="result-section"
-            aria-labelledby="clarification-title"
+            id="judge-section"
+            class="judge-section"
+            aria-labelledby="judge-title"
             hidden
           >
-            <div class="section-heading">
+            <div class="section-heading judge-heading">
               <div>
-                <p class="eyebrow">Нужно уточнение</p>
-                <h2 id="clarification-title">Помогите сделать вывод точнее</h2>
+              <p class="eyebrow">Внутренняя проверка</p>
+              <h2 id="judge-title">Проверяем план автоматизации</h2>
+              </div>
+              <div class="judge-live-status">
+                <span class="live-dot" aria-hidden="true"></span>
+                <span id="judge-stage-label">Готовим первую гипотезу…</span>
               </div>
             </div>
-            <p class="section-description">
-              Ответьте на вопросы ниже. Мы задаём только вопросы, которые могут
-              изменить рекомендацию по задачам.
-            </p>
-            <form id="clarification-form" class="clarification-form">
-              <div id="questions" class="questions"></div>
-              <button id="clarification-button" class="button button-primary" type="submit">
-                Продолжить анализ
-              </button>
-            </form>
-          </section>
 
-          <section
-            id="analysis-section"
-            class="result-section"
-            aria-labelledby="analysis-title"
-            hidden
-          >
-            <div class="section-heading">
-              <div>
-                <p class="eyebrow">Результат</p>
-                <h2 id="analysis-title"></h2>
+            <div class="judge-task-card">
+              <span class="stream-label">Описание роли</span>
+              <p id="judge-task"></p>
+            </div>
+
+            <div class="judge-graph" id="judge-graph" data-stage="first">
+              <svg
+                class="judge-threads"
+                viewBox="0 0 1000 680"
+                preserveAspectRatio="none"
+                role="img"
+                aria-label="Граф передачи данных между генератором гипотезы, экспертами и судьёй"
+              >
+                <defs>
+                  <linearGradient id="signal-flow" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stop-color="#ffffff" stop-opacity="0.95" />
+                    <stop offset="0.45" stop-color="#c5b7ff" stop-opacity="0.9" />
+                    <stop offset="1" stop-color="#ffc9a5" stop-opacity="0.92" />
+                  </linearGradient>
+                  <linearGradient id="verdict-flow" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0" stop-color="#b6f3dd" stop-opacity="0.95" />
+                    <stop offset="1" stop-color="#ffffff" stop-opacity="0.95" />
+                  </linearGradient>
+                  <filter id="light-glow" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation="5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <g class="thread-base">
+                  <path d="M500 180 C500 220 500 250 500 282" />
+                  <path d="M500 282 C430 300 300 320 220 378" />
+                  <path d="M500 282 C500 315 500 345 500 378" />
+                  <path d="M500 282 C570 300 700 320 780 378" />
+                  <path d="M220 485 C310 530 405 550 500 570" />
+                  <path d="M500 485 C500 520 500 545 500 570" />
+                  <path d="M780 485 C690 530 595 550 500 570" />
+                </g>
+                <g class="thread-pulses">
+                  <path class="thread-pulse first-route" d="M500 180 C500 220 500 250 500 282" />
+                  <path class="thread-pulse expert-bridge" d="M500 282 C430 300 300 320 220 378" />
+                  <path class="thread-pulse expert-bridge" d="M500 282 C500 315 500 345 500 378" />
+                  <path class="thread-pulse expert-bridge" d="M500 282 C570 300 700 320 780 378" />
+                  <path class="thread-pulse expert-route" d="M220 485 C310 530 405 550 500 570" />
+                  <path class="thread-pulse expert-route" d="M500 485 C500 520 500 545 500 570" />
+                  <path class="thread-pulse expert-route" d="M780 485 C690 530 595 550 500 570" />
+                </g>
+                <g class="data-packets" aria-hidden="true">
+                  <circle class="data-packet first-route" r="5">
+                    <animateMotion dur="2.3s" repeatCount="indefinite" path="M500 180 C500 220 500 250 500 282" />
+                  </circle>
+                  <circle class="data-packet expert-bridge" r="4">
+                    <animateMotion dur="2.4s" repeatCount="indefinite" path="M500 282 C430 300 300 320 220 378" />
+                  </circle>
+                  <circle class="data-packet expert-bridge" r="4">
+                    <animateMotion dur="2.4s" begin="-0.7s" repeatCount="indefinite" path="M500 282 C500 315 500 345 500 378" />
+                  </circle>
+                  <circle class="data-packet expert-bridge" r="4">
+                    <animateMotion dur="2.4s" begin="-1.4s" repeatCount="indefinite" path="M500 282 C570 300 700 320 780 378" />
+                  </circle>
+                  <circle class="data-packet expert-route" r="5">
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M220 485 C310 530 405 550 500 570" />
+                  </circle>
+                  <circle class="data-packet expert-route" r="5">
+                    <animateMotion dur="2.6s" begin="-0.8s" repeatCount="indefinite" path="M500 485 C500 520 500 545 500 570" />
+                  </circle>
+                  <circle class="data-packet expert-route" r="5">
+                    <animateMotion dur="2.6s" begin="-1.6s" repeatCount="indefinite" path="M780 485 C690 530 595 550 500 570" />
+                  </circle>
+                </g>
+              </svg>
+
+              <article class="agent-node" data-agent="first">
+                <div class="agent-portrait agent-portrait-orb">
+                  <svg class="agent-character" viewBox="0 0 96 96" aria-hidden="true">
+                    <defs>
+                      <radialGradient id="orb-glass" cx="30%" cy="22%" r="78%">
+                        <stop offset="0" stop-color="#ffffff" stop-opacity="0.98" />
+                        <stop offset="0.26" stop-color="#b9acff" stop-opacity="0.92" />
+                        <stop offset="0.72" stop-color="#5e56b7" stop-opacity="0.84" />
+                        <stop offset="1" stop-color="#282650" stop-opacity="0.98" />
+                      </radialGradient>
+                      <linearGradient id="orb-frame" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="#efeaff" />
+                        <stop offset="0.45" stop-color="#8c7bea" />
+                        <stop offset="1" stop-color="#393267" />
+                      </linearGradient>
+                    </defs>
+                    <ellipse class="icon-shadow" cx="48" cy="88" rx="27" ry="4" />
+                    <path class="icon-orb-stand" d="M28 74h40l7 12H21Z" />
+                    <path class="icon-orb-stand-line" d="M33 77h30M29 82h38" />
+                    <circle class="icon-orb-glass" cx="48" cy="43" r="28" />
+                    <ellipse class="icon-orb-reflection" cx="39" cy="32" rx="13" ry="8" />
+                    <path class="icon-orb-orbit" d="M23 48c11-16 34-18 49-4-2 13-18 22-34 20" />
+                    <path class="icon-orb-ray" d="m70 17 2 6 6 2-6 2-2 6-2-6-6-2 6-2Z" />
+                    <circle class="icon-orb-dot" cx="27" cy="27" r="3" />
+                  </svg>
+                </div>
+                <div class="agent-copy">
+                  <h3>Генератор гипотезы</h3>
+                  <p>Создаёт первый вариант решения</p>
+                  <span class="agent-state" data-agent-state>Готовится</span>
+                </div>
+              </article>
+
+              <article class="agent-node" data-agent="engineer">
+                <div class="agent-portrait">
+                  <svg class="agent-character" viewBox="0 0 96 96" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="engineer-glass" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="#d6f5ff" stop-opacity="0.95" />
+                        <stop offset="0.42" stop-color="#6eb9e2" stop-opacity="0.72" />
+                        <stop offset="1" stop-color="#263d71" stop-opacity="0.96" />
+                      </linearGradient>
+                    </defs>
+                    <ellipse class="icon-shadow" cx="48" cy="87" rx="28" ry="4" />
+                    <rect class="icon-engineer-shell" x="18" y="17" width="60" height="62" rx="14" />
+                    <rect class="icon-engineer-panel" x="26" y="25" width="44" height="32" rx="7" />
+                    <path class="icon-engineer-grid" d="M34 25v32M44 25v32M54 25v32M64 25v32M26 35h44M26 46h44" />
+                    <path class="icon-engineer-trace" d="M29 69h10l5-7h10l5 7h8" />
+                    <circle class="icon-engineer-node" cx="29" cy="69" r="4" />
+                    <circle class="icon-engineer-node" cx="59" cy="69" r="4" />
+                    <path class="icon-engineer-bolt" d="m51 31-9 13h8l-5 10 12-16h-8Z" />
+                    <path class="icon-engineer-shine" d="M31 21h19" />
+                  </svg>
+                </div>
+                <div class="agent-copy">
+                  <h3>Инженер</h3>
+                  <p>Ищет edge cases и зависимости</p>
+                  <span class="agent-state" data-agent-state>Ждёт</span>
+                </div>
+              </article>
+
+              <article class="agent-node" data-agent="analyst">
+                <div class="agent-portrait">
+                  <svg class="agent-character" viewBox="0 0 96 96" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="analyst-glass" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="#ddfff6" stop-opacity="0.96" />
+                        <stop offset="0.45" stop-color="#63cfba" stop-opacity="0.72" />
+                        <stop offset="1" stop-color="#1d5665" stop-opacity="0.96" />
+                      </linearGradient>
+                    </defs>
+                    <ellipse class="icon-shadow" cx="48" cy="87" rx="28" ry="4" />
+                    <rect class="icon-analyst-frame" x="17" y="19" width="54" height="58" rx="12" />
+                    <path class="icon-analyst-axis" d="M27 66V30M27 66h34" />
+                    <rect class="icon-analyst-bar" x="34" y="52" width="7" height="14" rx="3" />
+                    <rect class="icon-analyst-bar" x="46" y="43" width="7" height="23" rx="3" />
+                    <rect class="icon-analyst-bar" x="58" y="34" width="7" height="32" rx="3" />
+                    <path class="icon-analyst-trend" d="m29 55 10-7 8 3 15-15" />
+                    <circle class="icon-analyst-lens" cx="68" cy="64" r="12" />
+                    <path class="icon-analyst-handle" d="m77 73 9 9" />
+                    <path class="icon-analyst-glint" d="M63 59h6M66 56v6" />
+                  </svg>
+                </div>
+                <div class="agent-copy">
+                  <h3>Аналитик</h3>
+                  <p>Проверяет логику и факты</p>
+                  <span class="agent-state" data-agent-state>Ждёт</span>
+                </div>
+              </article>
+
+              <article class="agent-node" data-agent="process_pm">
+                <div class="agent-portrait">
+                  <svg class="agent-character" viewBox="0 0 96 96" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="process-glass" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="#fff0d1" stop-opacity="0.96" />
+                        <stop offset="0.44" stop-color="#e9ad68" stop-opacity="0.76" />
+                        <stop offset="1" stop-color="#6c3f4c" stop-opacity="0.96" />
+                      </linearGradient>
+                    </defs>
+                    <ellipse class="icon-shadow" cx="48" cy="87" rx="28" ry="4" />
+                    <path class="icon-process-route" d="M25 66h18l8-16h19" />
+                    <path class="icon-process-route" d="M43 66h8l9 12h11" />
+                    <circle class="icon-process-node" cx="25" cy="66" r="8" />
+                    <circle class="icon-process-node" cx="51" cy="50" r="8" />
+                    <circle class="icon-process-node" cx="70" cy="66" r="8" />
+                    <circle class="icon-process-node" cx="71" cy="78" r="8" />
+                    <path class="icon-process-diamond" d="m51 42 8 8-8 8-8-8Z" />
+                    <path class="icon-process-check" d="m66 66 3 3 6-7" />
+                    <path class="icon-process-flag" d="M19 27h20M19 27v15M19 27l12 6-12 6" />
+                    <circle class="icon-process-dot" cx="69" cy="31" r="3" />
+                  </svg>
+                </div>
+                <div class="agent-copy">
+                  <h3>Проджект-менеджер</h3>
+                  <p>Сверяет процесс и критерии успеха</p>
+                  <span class="agent-state" data-agent-state>Ждёт</span>
+                </div>
+              </article>
+
+              <article class="agent-node" data-agent="judge">
+                <div class="agent-portrait agent-portrait-judge">
+                  <svg class="agent-character" viewBox="0 0 96 96" aria-hidden="true">
+                    <defs>
+                      <linearGradient id="judge-glass" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="#e7e3ff" stop-opacity="0.96" />
+                        <stop offset="0.45" stop-color="#9585ef" stop-opacity="0.74" />
+                        <stop offset="1" stop-color="#31335f" stop-opacity="0.98" />
+                      </linearGradient>
+                    </defs>
+                    <ellipse class="icon-shadow" cx="48" cy="87" rx="29" ry="4" />
+                    <path class="icon-judge-plate" d="M18 72h60l-7 13H25Z" />
+                    <path class="icon-judge-column" d="M43 30h10v43H43Z" />
+                    <path class="icon-judge-scale" d="M27 38h42M34 39 25 57M62 39l9 18" />
+                    <path class="icon-judge-pan" d="M17 56h16l-4 7H21Z" />
+                    <path class="icon-judge-pan" d="M63 56h16l-4 7H67Z" />
+                    <circle class="icon-judge-hub" cx="48" cy="38" r="7" />
+                    <path class="icon-judge-star" d="m48 13 3 8 9 1-7 6 2 9-7-5-7 5 2-9-7-6 9-1Z" />
+                    <path class="icon-judge-check" d="m41 51 5 5 10-12" />
+                    <path class="icon-judge-shine" d="M31 78h34" />
+                  </svg>
+                </div>
+                <div class="agent-copy">
+                  <h3>Судья</h3>
+                  <p>Собирает доказательства в решение</p>
+                  <span class="agent-state" data-agent-state>Ждёт</span>
+                </div>
+              </article>
+            </div>
+
+            <section class="thought-section" aria-labelledby="thought-title">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Прямой эфир</p>
+                  <h2 id="thought-title">Рассуждение каждого агента</h2>
+                </div>
+                <span class="muted">Потоки идут одновременно</span>
               </div>
-              <span id="task-count" class="muted"></span>
-            </div>
-            <p id="role-summary" class="role-summary"></p>
+              <div class="thought-grid">
+                <article class="thought-card" data-thought-agent="first">
+                  <div class="thought-card-header">
+                    <h3>Генератор гипотезы</h3>
+                    <span data-thought-status>Ожидает</span>
+                  </div>
+                  <span class="stream-label">Рассуждение модели</span>
+                  <pre class="reasoning-stream" data-reasoning data-placeholder="Скоро появится первая гипотеза…" aria-live="polite"></pre>
+                  <span class="stream-label">Ответ для экспертов</span>
+                  <pre class="answer-stream" data-answer data-placeholder="Финальный фрагмент ещё не готов…"></pre>
+                </article>
 
-            <div id="assumptions-section" class="assumptions" hidden>
-              <h3>Общие предположения</h3>
-              <ul id="global-assumptions"></ul>
-            </div>
+                <article class="thought-card" data-thought-agent="engineer">
+                  <div class="thought-card-header">
+                    <h3>Инженер</h3>
+                    <span data-thought-status>Ожидает</span>
+                  </div>
+                  <span class="stream-label">Рассуждение модели</span>
+                  <pre class="reasoning-stream" data-reasoning data-placeholder="Подключится после генератора…" aria-live="polite"></pre>
+                  <span class="stream-label">Ответ эксперта</span>
+                  <pre class="answer-stream" data-answer data-placeholder="Проверка ещё не началась…"></pre>
+                </article>
 
-            <div id="tasks" class="task-list"></div>
+                <article class="thought-card" data-thought-agent="analyst">
+                  <div class="thought-card-header">
+                    <h3>Аналитик</h3>
+                    <span data-thought-status>Ожидает</span>
+                  </div>
+                  <span class="stream-label">Рассуждение модели</span>
+                  <pre class="reasoning-stream" data-reasoning data-placeholder="Подключится после генератора…" aria-live="polite"></pre>
+                  <span class="stream-label">Ответ эксперта</span>
+                  <pre class="answer-stream" data-answer data-placeholder="Проверка ещё не началась…"></pre>
+                </article>
+
+                <article class="thought-card" data-thought-agent="process_pm">
+                  <div class="thought-card-header">
+                    <h3>Проджект-менеджер</h3>
+                    <span data-thought-status>Ожидает</span>
+                  </div>
+                  <span class="stream-label">Рассуждение модели</span>
+                  <pre class="reasoning-stream" data-reasoning data-placeholder="Подключится после генератора…" aria-live="polite"></pre>
+                  <span class="stream-label">Ответ эксперта</span>
+                  <pre class="answer-stream" data-answer data-placeholder="Проверка ещё не началась…"></pre>
+                </article>
+
+                <article class="thought-card thought-card-judge" data-thought-agent="judge">
+                  <div class="thought-card-header">
+                    <h3>Судья</h3>
+                    <span data-thought-status>Ожидает</span>
+                  </div>
+                  <span class="stream-label">Рассуждение модели</span>
+                  <pre class="reasoning-stream" data-reasoning data-placeholder="Соберёт все ответы после экспертов…" aria-live="polite"></pre>
+                  <span class="stream-label">Итоговое решение</span>
+                  <pre class="answer-stream" data-answer data-placeholder="Итог появится здесь…"></pre>
+                </article>
+              </div>
+            </section>
+
+            <section id="judge-decision" class="judge-decision" aria-labelledby="decision-title" hidden>
+              <div class="decision-header">
+                <div class="decision-emblem" aria-hidden="true">
+                  <svg viewBox="0 0 64 64">
+                    <path d="M32 7 39 24l18 2-14 12 4 18-15-9-15 9 4-18L7 26l18-2Z" />
+                    <path class="decision-check" d="m20 33 8 8 16-18" />
+                  </svg>
+                </div>
+                <div>
+                <p class="eyebrow">Решение судьи</p>
+                  <h2 id="decision-title">Решение по задачам роли</h2>
+                </div>
+                <span class="decision-badge">FINAL</span>
+              </div>
+
+              <div class="decision-core">
+                <div class="decision-summary">
+                  <span class="decision-label">Итог</span>
+                  <p id="decision-summary"></p>
+                </div>
+                <div class="decision-rating">
+                  <span class="decision-label">Оценка первого ответа</span>
+                  <p id="decision-rating"></p>
+                </div>
+              </div>
+
+              <div class="decision-actions">
+                <div class="decision-actions-header">
+                  <div>
+                    <span class="decision-label">Действия роли</span>
+                    <h3>Человек, автоматизация или аутсорс</h3>
+                  </div>
+                  <span id="decision-task-count" class="decision-task-count"></span>
+                </div>
+                <div id="decision-tasks" class="task-list" aria-live="polite"></div>
+              </div>
+
+              <div class="decision-details">
+                <div class="decision-detail">
+                  <span class="decision-label">Почему</span>
+                  <p id="decision-why"></p>
+                </div>
+                <div class="decision-detail">
+                  <span class="decision-label">Что улучшить</span>
+                  <p id="decision-improve"></p>
+                </div>
+              </div>
+
+              <details class="decision-source">
+                <summary>Показать полный ответ судьи</summary>
+                <pre id="judge-decision-source"></pre>
+              </details>
+            </section>
           </section>
         </div>
       </section>
     </main>
 
-    <script src="app.js" defer></script>
+    <script src="app.js?v=judge-cards-v2" defer></script>
   </body>
 </html>

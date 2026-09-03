@@ -44,6 +44,10 @@ class RoleAnalysisRequest(StrictModel):
     )
 
 
+class JudgeRequest(StrictModel):
+    task: Annotated[str, Field(min_length=10, max_length=12_000)]
+
+
 class RoleTask(StrictModel):
     title: Annotated[str, Field(min_length=1, max_length=160)]
     description: Annotated[str, Field(min_length=1, max_length=1_000)]
