@@ -102,3 +102,25 @@ RoleAnalysisResponse: TypeAlias = Annotated[
 
 
 ROLE_ANALYSIS_RESPONSE_ADAPTER = TypeAdapter(RoleAnalysisResponse)
+
+
+TemperatureValue: TypeAlias = Literal[0.0, 0.7, 1.2]
+TEMPERATURE_VALUES: tuple[float, float, float] = (0.0, 0.7, 1.2)
+
+
+class TemperatureExperimentRequest(StrictModel):
+    task: Annotated[str, Field(min_length=10, max_length=12_000)]
+
+
+class TemperatureExperimentResult(StrictModel):
+    temperature: TemperatureValue
+    answer: Annotated[str, Field(max_length=20_000)] = ""
+    error: str | None = None
+
+
+class TemperatureExperimentResponse(StrictModel):
+    task: Annotated[str, Field(min_length=10, max_length=12_000)]
+    results: list[TemperatureExperimentResult] = Field(
+        min_length=len(TEMPERATURE_VALUES),
+        max_length=len(TEMPERATURE_VALUES),
+    )

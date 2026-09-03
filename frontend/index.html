@@ -8,7 +8,7 @@
       content="FlowScout превращает описание роли в основу автоматизированного n8n-пайплайна"
     />
     <title>FlowScout — роль в n8n-пайплайн</title>
-    <link rel="stylesheet" href="styles.css?v=judge-cards" />
+    <link rel="stylesheet" href="styles.css?v=temperature-lab" />
   </head>
   <body>
     <main class="app-shell">
@@ -108,13 +108,74 @@
               </small>
             </label>
             <div class="form-actions">
-              <button id="start-button" class="button button-primary" type="submit">
-                <span>Разобрать роль</span>
-                <span class="button-spark" aria-hidden="true">↗</span>
-              </button>
-              <span class="form-note"><span class="note-dot"></span>Агенты выделят точки автоматизации</span>
+              <div class="form-buttons">
+                <button id="start-button" class="button button-primary" type="submit">
+                  <span>Разобрать роль</span>
+                  <span class="button-spark" aria-hidden="true">↗</span>
+                </button>
+                <button id="temperature-button" class="button button-secondary" type="button">
+                  <span>Сравнить температуры</span>
+                  <span class="button-spark" aria-hidden="true">≈</span>
+                </button>
+              </div>
+              <span class="form-note"><span class="note-dot"></span>Один запрос · три режима генерации</span>
             </div>
           </form>
+
+          <section
+            id="temperature-section"
+            class="temperature-section"
+            aria-labelledby="temperature-title"
+            hidden
+          >
+            <div class="section-heading temperature-heading">
+              <div>
+                <p class="eyebrow">Эксперимент</p>
+                <h2 id="temperature-title">Как меняется ответ при разной температуре</h2>
+              </div>
+              <div class="temperature-live-status">
+                <span class="live-dot" aria-hidden="true"></span>
+                <span id="temperature-stage-label">Готовим три варианта…</span>
+              </div>
+            </div>
+
+            <div class="temperature-task-card">
+              <span class="stream-label">Один и тот же запрос</span>
+              <p id="temperature-task"></p>
+            </div>
+
+            <div id="temperature-results" class="temperature-results" aria-live="polite"></div>
+
+            <section class="temperature-conclusions" aria-labelledby="temperature-conclusions-title">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Выводы</p>
+                  <h3 id="temperature-conclusions-title">Что сравниваем</h3>
+                </div>
+                <span class="muted">Гипотеза для выбора режима</span>
+              </div>
+              <div class="temperature-guide-grid">
+                <article class="temperature-guide-card">
+                  <span class="temperature-value">0</span>
+                  <h3>Точность и стабильность</h3>
+                  <p>Подходит для классификации, структурированных ответов и финальных решений.</p>
+                </article>
+                <article class="temperature-guide-card">
+                  <span class="temperature-value">0.7</span>
+                  <h3>Баланс</h3>
+                  <p>Подходит для анализа, черновиков и гипотез, где нужны и факты, и варианты.</p>
+                </article>
+                <article class="temperature-guide-card">
+                  <span class="temperature-value">1.2</span>
+                  <h3>Креативность и разнообразие</h3>
+                  <p>Подходит для brainstorming, но идеи и предположения нужно проверять человеком.</p>
+                </article>
+              </div>
+              <p class="temperature-method-note">
+                Один запуск показывает различия в стиле. Для оценки разнообразия повторите эксперимент несколько раз с тем же запросом.
+              </p>
+            </section>
+          </section>
 
           <section
             id="judge-section"
@@ -481,6 +542,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=judge-cards-v2" defer></script>
+    <script src="app.js?v=temperature-lab" defer></script>
   </body>
 </html>

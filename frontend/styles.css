@@ -479,6 +479,12 @@ h3 {
   gap: 16px;
 }
 
+.form-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .form-note {
   display: inline-flex;
   align-items: center;
@@ -547,6 +553,180 @@ h3 {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.14);
   font-size: 16px;
+}
+
+.temperature-section {
+  margin-top: 50px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 33px;
+}
+
+.temperature-heading {
+  align-items: center;
+}
+
+.temperature-live-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-soft);
+  font-size: 12px;
+  text-align: right;
+}
+
+.temperature-task-card {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--cyan);
+  border-radius: 11px;
+  padding: 14px 16px;
+  background: #0b1222;
+}
+
+.temperature-task-card p {
+  margin-top: 7px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.temperature-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.temperature-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  background: #10192d;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
+}
+
+.temperature-card[data-temperature="0"] {
+  border-top: 2px solid var(--cyan);
+}
+
+.temperature-card[data-temperature="0.7"] {
+  border-top: 2px solid var(--purple);
+}
+
+.temperature-card[data-temperature="1.2"] {
+  border-top: 2px solid var(--orange);
+}
+
+.temperature-card.is-loading {
+  border-color: #665fc4;
+  background: #171c38;
+}
+
+.temperature-card.is-error {
+  border-color: #98485e;
+}
+
+.temperature-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.temperature-card-header h3 {
+  font-size: 14px;
+}
+
+.temperature-value {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid #334261;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #172039;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.temperature-focus {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.temperature-answer {
+  min-height: 210px;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  padding: 12px;
+  background: var(--surface-deep);
+  color: var(--text-soft);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.temperature-card-note {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.temperature-conclusions {
+  margin-top: 42px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 31px;
+}
+
+.temperature-conclusions > .section-heading h3 {
+  font-size: 18px;
+}
+
+.temperature-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.temperature-guide-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 15px;
+  background: #0f182b;
+}
+
+.temperature-guide-card h3 {
+  margin-top: 12px;
+  font-size: 13px;
+}
+
+.temperature-guide-card p {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.temperature-method-note {
+  margin-top: 17px;
+  color: var(--muted-dark);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .judge-section {
@@ -1648,6 +1828,10 @@ h3 {
     gap: 12px;
   }
 
+  .form-buttons {
+    flex-direction: column;
+  }
+
   .form-actions .button {
     width: 100%;
   }
@@ -1678,6 +1862,20 @@ h3 {
     border-top: 1px solid var(--line);
     border-left: 0;
     padding-top: 15px;
+  }
+
+  .temperature-results,
+  .temperature-guide-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .temperature-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .temperature-live-status {
+    text-align: left;
   }
 
   .judge-heading {

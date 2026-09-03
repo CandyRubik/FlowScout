@@ -63,6 +63,7 @@ class DeepSeekProvider:
         thinking_type: str,
         max_tokens: int = DEFAULT_MAX_TOKENS,
         stream: bool = False,
+        temperature: float | None = None,
     ) -> dict[str, Any]:
         request: dict[str, Any] = {
             "model": os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
@@ -78,6 +79,8 @@ class DeepSeekProvider:
             request["reasoning_effort"] = DEFAULT_REASONING_EFFORT
         if response_format is not None:
             request["response_format"] = response_format
+        if temperature is not None:
+            request["temperature"] = temperature
         return request
 
     def _request_completion(self, request: dict[str, Any]) -> Any:
@@ -134,6 +137,7 @@ class DeepSeekProvider:
         response_format: dict[str, Any] | None = None,
         thinking_type: str,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+        temperature: float | None = None,
     ) -> Iterator[LlmStreamChunk]:
         request = self._build_request(
             system_prompt=system_prompt,
@@ -142,6 +146,7 @@ class DeepSeekProvider:
             thinking_type=thinking_type,
             max_tokens=max_tokens,
             stream=True,
+            temperature=temperature,
         )
 
         try:
@@ -171,6 +176,7 @@ class DeepSeekProvider:
         user_prompt: str,
         response_format: dict[str, Any] | None = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+        temperature: float | None = None,
     ) -> Iterator[LlmStreamChunk]:
         try:
             yield from self._stream_once(
@@ -179,6 +185,7 @@ class DeepSeekProvider:
                 response_format=response_format,
                 thinking_type="enabled",
                 max_tokens=max_tokens,
+                temperature=temperature,
             )
         except LlmEmptyStreamError as error:
             if error.finish_reason == "content_filter":
@@ -196,6 +203,7 @@ class DeepSeekProvider:
                 response_format=response_format,
                 thinking_type="disabled",
                 max_tokens=max_tokens,
+                temperature=temperature,
             )
 
     def complete(
@@ -205,6 +213,7 @@ class DeepSeekProvider:
         user_prompt: str,
         response_format: dict[str, Any] | None = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
+        temperature: float | None = None,
     ) -> str:
         request = self._build_request(
             system_prompt=system_prompt,
@@ -212,6 +221,7 @@ class DeepSeekProvider:
             response_format=response_format,
             thinking_type="enabled",
             max_tokens=max_tokens,
+            temperature=temperature,
         )
         response = self._request_completion(request)
         content, finish_reason = self._extract_content(response)
@@ -228,6 +238,7 @@ class DeepSeekProvider:
                 response_format=response_format,
                 thinking_type="disabled",
                 max_tokens=max_tokens,
+                temperature=temperature,
             )
             fallback_response = self._request_completion(fallback_request)
             fallback_content, fallback_finish_reason = self._extract_content(
