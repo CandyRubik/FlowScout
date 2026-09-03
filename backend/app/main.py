@@ -15,12 +15,19 @@ from .providers.deepseek import (
     LlmConfigurationError,
     LlmRequestError,
 )
-from .schemas import JudgeRequest, RoleAnalysisRequest, RoleAnalysisResponse
+from .schemas import (
+    JudgeRequest,
+    RoleAnalysisRequest,
+    RoleAnalysisResponse,
+    TemperatureExperimentRequest,
+    TemperatureExperimentResponse,
+)
 from .services.llm_judge import JudgeUpdate, LlmJudgeService
 from .services.role_analyzer import (
     InvalidModelResponse,
     RoleAnalysisService,
 )
+from .services.temperature_experiment import TemperatureExperimentService
 
 
 logger = logging.getLogger(__name__)
@@ -50,6 +57,10 @@ def get_role_analysis_service() -> RoleAnalysisService:
 
 def get_llm_judge_service() -> LlmJudgeService:
     return LlmJudgeService(DeepSeekProvider())
+
+
+def get_temperature_experiment_service() -> TemperatureExperimentService:
+    return TemperatureExperimentService(DeepSeekProvider())
 
 
 def _sse_event(event: str, payload: dict[str, Any]) -> str:
@@ -137,3 +148,28 @@ def llm_as_judge(
     service: LlmJudgeService = Depends(get_llm_judge_service),
 ) -> StreamingResponse:
     return _judge_streaming_response(service.stream(request))
+
+
+@app.post(
+    "/api/temperature-experiment",
+    response_model=TemperatureExperimentResponse,
+)
+def temperature_experiment(
+    request: TemperatureExperimentRequest,
+    service: TemperatureExperimentService = Depends(
+        get_temperature_experiment_service,
+    ),
+) -> TemperatureExperimentResponse:
+    try:
+        return service.run(request)
+    except LlmConfigurationError:
+        raise HTTPException(
+            status_code=503,
+            detail="DeepSeek API is not configured",
+        ) from None
+    except LlmRequestError:
+        logger.exception("DeepSeek temperature experiment request failed")
+        raise HTTPException(
+            status_code=502,
+            detail="DeepSeek request failed",
+        ) from None

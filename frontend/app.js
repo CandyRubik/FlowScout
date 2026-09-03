@@ -3,6 +3,7 @@ const API_BASE_URL = (window.API_BASE_URL || "http://localhost:8000").replace(/\
 const taskForm = document.querySelector("#task-form");
 const taskInput = document.querySelector("#task-input");
 const startButton = document.querySelector("#start-button");
+const temperatureButton = document.querySelector("#temperature-button");
 const judgeSection = document.querySelector("#judge-section");
 const judgeGraph = document.querySelector("#judge-graph");
 const judgeTask = document.querySelector("#judge-task");
@@ -17,9 +18,14 @@ const decisionTaskCount = document.querySelector("#decision-task-count");
 const decisionSource = document.querySelector("#judge-decision-source");
 const resetButton = document.querySelector("#reset-button");
 const status = document.querySelector("#status");
+const temperatureSection = document.querySelector("#temperature-section");
+const temperatureTask = document.querySelector("#temperature-task");
+const temperatureStageLabel = document.querySelector("#temperature-stage-label");
+const temperatureResults = document.querySelector("#temperature-results");
 
 let isBusy = false;
 let judgeAbortController = null;
+let temperatureAbortController = null;
 let requestSequence = 0;
 let judgeHasFinished = false;
 
@@ -37,21 +43,43 @@ const recommendationLabels = {
   contractor: "Передать на аутсорс",
 };
 
+const temperatureValues = [0, 0.7, 1.2];
+const temperatureProfiles = {
+  "0": {
+    title: "Стабильность",
+    focus: "Точность",
+    note: "Ищите устойчивый ответ без лишних предположений и расхождений в фактах.",
+  },
+  "0.7": {
+    title: "Баланс",
+    focus: "Точность + идеи",
+    note: "Ищите полезные варианты и нюансы, которые не выходят за границы исходного запроса.",
+  },
+  "1.2": {
+    title: "Вариативность",
+    focus: "Креативность",
+    note: "Проверяйте новые идеи: высокая вариативность может сопровождаться домыслами.",
+  },
+};
+
 function setStatus(message, kind = "") {
   status.textContent = message;
   status.dataset.kind = kind;
 }
 
-function setBusy(value) {
+function setBusy(value, action = "judge") {
   isBusy = value;
   for (const element of taskForm.querySelectorAll("textarea, button")) {
     element.disabled = value;
   }
   resetButton.disabled = false;
   resetButton.textContent = value ? "Остановить" : "Новая проверка";
-  startButton.querySelector("span").textContent = value
+  startButton.querySelector("span").textContent = value && action === "judge"
     ? "Разбираем роль…"
     : "Разобрать роль";
+  temperatureButton.querySelector("span").textContent = value && action === "temperature"
+    ? "Сравниваем…"
+    : "Сравнить температуры";
 }
 
 function errorMessage(data) {
@@ -64,6 +92,13 @@ function errorMessage(data) {
       .join("; ");
   }
   return "Не удалось выполнить проверку";
+}
+
+function requestErrorMessage(error, fallback) {
+  if (error?.name === "TypeError" && error?.message === "Failed to fetch") {
+    return "Backend недоступен";
+  }
+  return error?.message || fallback;
 }
 
 function getJudgeStreamNode(agent, selector) {
@@ -247,6 +282,117 @@ async function requestJudgeStream(payload, onEvent, signal) {
   if (buffer.trim()) {
     parseSseBlock(buffer, onEvent);
   }
+}
+
+async function requestTemperatureExperiment(task, signal) {
+  const response = await fetch(`${API_BASE_URL}/api/temperature-experiment`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ task }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(errorMessage(data));
+  }
+
+  return response.json();
+}
+
+function formatTemperature(value) {
+  const numericValue = Number(value);
+  return numericValue === 0 ? "0" : numericValue.toFixed(1);
+}
+
+function renderTemperatureCard(result, isLoading = false) {
+  const value = formatTemperature(result.temperature);
+  const profile = temperatureProfiles[value] || {
+    title: "Вариант ответа",
+    focus: "Сравнение",
+    note: "Сравните ответ с исходным запросом.",
+  };
+  const card = document.createElement("article");
+  card.className = "temperature-card";
+  card.dataset.temperature = value;
+  if (isLoading) {
+    card.classList.add("is-loading");
+  }
+
+  const header = document.createElement("div");
+  header.className = "temperature-card-header";
+  const titleBlock = document.createElement("div");
+  const title = document.createElement("h3");
+  title.textContent = profile.title;
+  const focus = document.createElement("span");
+  focus.className = "temperature-focus";
+  focus.textContent = profile.focus;
+  titleBlock.append(title, focus);
+  const valueNode = document.createElement("span");
+  valueNode.className = "temperature-value";
+  valueNode.textContent = `temperature = ${value}`;
+  header.append(titleBlock, valueNode);
+
+  const answer = document.createElement("pre");
+  answer.className = "temperature-answer";
+  answer.textContent = result.error || result.answer || "Ответ ещё формируется…";
+
+  const note = document.createElement("p");
+  note.className = "temperature-card-note";
+  note.textContent = profile.note;
+
+  card.append(header, answer, note);
+  if (result.error) {
+    card.classList.add("is-error");
+  }
+  return card;
+}
+
+function renderTemperatureLoading(task) {
+  temperatureTask.textContent = task;
+  temperatureStageLabel.textContent = "Три варианта формируются…";
+  temperatureResults.replaceChildren(
+    ...temperatureValues.map((temperature) => renderTemperatureCard(
+      { temperature },
+      true,
+    )),
+  );
+  temperatureSection.hidden = false;
+  temperatureSection.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderTemperatureError(message) {
+  temperatureResults.replaceChildren(
+    ...temperatureValues.map((temperature) => renderTemperatureCard({
+      temperature,
+      error: message,
+    })),
+  );
+}
+
+function renderTemperatureExperiment(data) {
+  const results = Array.isArray(data.results) ? data.results : [];
+  const resultByTemperature = new Map(
+    results.map((result) => [formatTemperature(result.temperature), result]),
+  );
+  const cards = temperatureValues.map((temperature) => {
+    const value = formatTemperature(temperature);
+    return renderTemperatureCard(
+      resultByTemperature.get(value) || {
+        temperature,
+        error: "Вариант не был получен",
+      },
+    );
+  });
+  temperatureTask.textContent = data.task || "";
+  temperatureResults.replaceChildren(...cards);
+  temperatureStageLabel.textContent = "Три варианта готовы к сравнению";
+  temperatureSection.hidden = false;
+  temperatureSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  return cards.filter((card) => card.classList.contains("is-error")).length;
 }
 
 function asText(value) {
@@ -645,7 +791,7 @@ async function runJudge(task) {
   judgeAbortController = new AbortController();
   resetJudgeView(task);
   resetButton.hidden = false;
-  setBusy(true);
+  setBusy(true, "judge");
   setStatus("FlowScout разбирает роль и ищет точки автоматизации…");
 
   try {
@@ -662,11 +808,59 @@ async function runJudge(task) {
       setStatus("Проверка остановлена", "warning");
     } else {
       judgeGraph.dataset.stage = "error";
-      setStatus(error.message || "Не удалось завершить проверку", "error");
+      setStatus(
+        requestErrorMessage(error, "Не удалось завершить проверку"),
+        "error",
+      );
     }
   } finally {
     if (runId === requestSequence) {
       judgeAbortController = null;
+      setBusy(false);
+      resetButton.hidden = false;
+    }
+  }
+}
+
+async function runTemperatureExperiment(task) {
+  if (isBusy) {
+    return;
+  }
+
+  const runId = ++requestSequence;
+  temperatureAbortController = new AbortController();
+  renderTemperatureLoading(task);
+  resetButton.hidden = false;
+  setBusy(true, "temperature");
+  setStatus("Запускаем один запрос в трёх температурных режимах…");
+
+  try {
+    const data = await requestTemperatureExperiment(
+      task,
+      temperatureAbortController.signal,
+    );
+    const failedCount = renderTemperatureExperiment(data);
+    if (failedCount) {
+      setStatus(`Готово, но ${failedCount} вариант не удалось получить`, "warning");
+    } else {
+      setStatus("Три ответа готовы к сравнению");
+    }
+  } catch (error) {
+    if (error.name === "AbortError") {
+      setStatus("Эксперимент остановлен", "warning");
+    } else {
+      renderTemperatureError(
+        requestErrorMessage(error, "Не удалось получить вариант"),
+      );
+      temperatureStageLabel.textContent = "Эксперимент завершился с ошибкой";
+      setStatus(
+        requestErrorMessage(error, "Не удалось выполнить эксперимент"),
+        "error",
+      );
+    }
+  } finally {
+    if (runId === requestSequence) {
+      temperatureAbortController = null;
       setBusy(false);
       resetButton.hidden = false;
     }
@@ -679,9 +873,17 @@ function resetApp() {
     judgeAbortController.abort();
     judgeAbortController = null;
   }
+  if (temperatureAbortController) {
+    temperatureAbortController.abort();
+    temperatureAbortController = null;
+  }
   taskForm.reset();
   judgeSection.hidden = true;
   judgeDecision.hidden = true;
+  temperatureSection.hidden = true;
+  temperatureTask.textContent = "";
+  temperatureResults.replaceChildren();
+  temperatureStageLabel.textContent = "Готовим три варианта…";
   clearJudgeStreams();
   resetButton.hidden = true;
   setBusy(false);
@@ -699,6 +901,17 @@ taskForm.addEventListener("submit", (event) => {
 });
 
 resetButton.addEventListener("click", resetApp);
+
+temperatureButton.addEventListener("click", () => {
+  if (isBusy) {
+    return;
+  }
+  if (!taskInput.checkValidity()) {
+    taskInput.reportValidity();
+    return;
+  }
+  runTemperatureExperiment(taskInput.value.trim());
+});
 
 async function checkHealth() {
   try {

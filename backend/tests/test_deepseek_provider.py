@@ -75,6 +75,22 @@ def test_provider_uses_structured_analysis_defaults() -> None:
     }]
 
 
+def test_provider_forwards_temperature() -> None:
+    completions = FakeCompletions(completion("Ответ"))
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=completions),
+    )
+    provider = DeepSeekProvider(client=client)  # type: ignore[arg-type]
+
+    provider.complete(
+        system_prompt="system",
+        user_prompt="user",
+        temperature=0.7,
+    )
+
+    assert completions.requests[0]["temperature"] == 0.7
+
+
 def test_provider_retries_empty_response_without_thinking() -> None:
     completions = FakeCompletions(
         completion(""),
