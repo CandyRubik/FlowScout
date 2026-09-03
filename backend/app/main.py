@@ -1,17 +1,22 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+import json
 import logging
 import os
+from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from .providers.deepseek import (
     DeepSeekProvider,
     LlmConfigurationError,
     LlmRequestError,
 )
-from .schemas import RoleAnalysisRequest, RoleAnalysisResponse
+from .schemas import JudgeRequest, RoleAnalysisRequest, RoleAnalysisResponse
+from .services.llm_judge import JudgeUpdate, LlmJudgeService
 from .services.role_analyzer import (
     InvalidModelResponse,
     RoleAnalysisService,
@@ -41,6 +46,55 @@ app.add_middleware(
 
 def get_role_analysis_service() -> RoleAnalysisService:
     return RoleAnalysisService(DeepSeekProvider())
+
+
+def get_llm_judge_service() -> LlmJudgeService:
+    return LlmJudgeService(DeepSeekProvider())
+
+
+def _sse_event(event: str, payload: dict[str, Any]) -> str:
+    return (
+        f"event: {event}\n"
+        "data: "
+        + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        + "\n\n"
+    )
+
+
+def _judge_streaming_response(
+    updates: Iterator[JudgeUpdate],
+) -> StreamingResponse:
+    def events() -> Iterator[str]:
+        try:
+            for update in updates:
+                event_type = str(update.get("type", "status"))
+                payload = {
+                    key: value
+                    for key, value in update.items()
+                    if key != "type"
+                }
+                yield _sse_event(event_type, payload)
+        except LlmConfigurationError:
+            yield _sse_event(
+                "error",
+                {"message": "DeepSeek API is not configured"},
+            )
+        except LlmRequestError:
+            logger.exception("DeepSeek llm-as-a-judge request failed")
+            yield _sse_event("error", {"message": "DeepSeek request failed"})
+        except Exception:
+            logger.exception("Unexpected llm-as-a-judge streaming error")
+            yield _sse_event("error", {"message": "Не удалось завершить проверку"})
+
+    return StreamingResponse(
+        events(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.get("/api/health")
@@ -75,3 +129,11 @@ def role_analysis(
             status_code=502,
             detail="DeepSeek returned an invalid structured response",
         ) from None
+
+
+@app.post("/api/llm-as-judge")
+def llm_as_judge(
+    request: JudgeRequest,
+    service: LlmJudgeService = Depends(get_llm_judge_service),
+) -> StreamingResponse:
+    return _judge_streaming_response(service.stream(request))

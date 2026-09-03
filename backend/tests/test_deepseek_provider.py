@@ -28,6 +28,25 @@ def completion(content: str, finish_reason: str = "stop") -> SimpleNamespace:
     )
 
 
+def stream_chunk(
+    *,
+    reasoning: str = "",
+    content: str = "",
+    finish_reason: str | None = None,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                finish_reason=finish_reason,
+                delta=SimpleNamespace(
+                    reasoning_content=reasoning,
+                    content=content,
+                ),
+            ),
+        ],
+    )
+
+
 def test_provider_uses_structured_analysis_defaults() -> None:
     completions = FakeCompletions(completion('{"status":"ready"}'))
     client = SimpleNamespace(
@@ -94,3 +113,61 @@ def test_provider_does_not_retry_content_filtered_response() -> None:
         provider.complete(system_prompt="system", user_prompt="user")
 
     assert len(completions.requests) == 1
+
+
+def test_provider_streams_reasoning_and_content() -> None:
+    completions = FakeCompletions(
+        iter(
+            [
+                stream_chunk(reasoning="Сначала проверю факты. "),
+                stream_chunk(content="Итоговый ответ.", finish_reason="stop"),
+            ],
+        ),
+    )
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=completions),
+    )
+    provider = DeepSeekProvider(client=client)  # type: ignore[arg-type]
+
+    chunks = list(provider.stream(system_prompt="system", user_prompt="user"))
+
+    assert [chunk.reasoning for chunk in chunks if chunk.reasoning] == [
+        "Сначала проверю факты. ",
+    ]
+    assert [chunk.content for chunk in chunks if chunk.content] == [
+        "Итоговый ответ.",
+    ]
+    assert completions.requests[0]["stream"] is True
+    assert completions.requests[0]["extra_body"] == {
+        "thinking": {"type": "enabled"},
+    }
+
+
+def test_provider_retries_empty_stream_without_thinking() -> None:
+    completions = FakeCompletions(
+        iter(
+            [
+                stream_chunk(reasoning="Думаю, но финала пока нет."),
+                stream_chunk(finish_reason="stop"),
+            ],
+        ),
+        iter(
+            [
+                stream_chunk(content="Ответ после повтора.", finish_reason="stop"),
+            ],
+        ),
+    )
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=completions),
+    )
+    provider = DeepSeekProvider(client=client)  # type: ignore[arg-type]
+
+    chunks = list(provider.stream(system_prompt="system", user_prompt="user"))
+
+    assert any(chunk.status for chunk in chunks)
+    assert "Ответ после повтора." in "".join(chunk.content for chunk in chunks)
+    assert len(completions.requests) == 2
+    assert completions.requests[1]["extra_body"] == {
+        "thinking": {"type": "disabled"},
+    }
+    assert "reasoning_effort" not in completions.requests[1]
