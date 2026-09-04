@@ -22,6 +22,8 @@ let isBusy = false;
 let judgeAbortController = null;
 let requestSequence = 0;
 let judgeHasFinished = false;
+const judgeStreamStates = new Map();
+let judgeStreamFlushFrame = null;
 
 const agentLabels = {
   first: "Генератор гипотезы",
@@ -140,6 +142,12 @@ function setJudgeStage(stage, message) {
 }
 
 function clearJudgeStreams() {
+  if (judgeStreamFlushFrame !== null) {
+    cancelAnimationFrame(judgeStreamFlushFrame);
+    judgeStreamFlushFrame = null;
+  }
+  judgeStreamStates.clear();
+
   for (const card of document.querySelectorAll("[data-thought-agent]")) {
     card.classList.remove("is-active", "is-done", "is-error");
     const statusNode = card.querySelector("[data-thought-status]");
@@ -176,7 +184,40 @@ function resetJudgeView(task) {
   clearJudgeStreams();
   setJudgeStage("first", "Генератор гипотезы собирает первый ответ…");
   judgeSection.hidden = false;
-  judgeSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  judgeSection.scrollIntoView({ behavior: "auto", block: "start" });
+}
+
+function flushJudgeStreamBuffer() {
+  judgeStreamFlushFrame = null;
+  const changedNodes = [];
+
+  for (const state of judgeStreamStates.values()) {
+    if (!state.parts.length) {
+      continue;
+    }
+    state.node.append(document.createTextNode(state.parts.join("")));
+    state.parts.length = 0;
+    changedNodes.push(state.node);
+  }
+
+  for (const node of changedNodes) {
+    node.scrollTop = node.scrollHeight;
+  }
+}
+
+function scheduleJudgeStreamFlush() {
+  if (judgeStreamFlushFrame !== null) {
+    return;
+  }
+  judgeStreamFlushFrame = requestAnimationFrame(flushJudgeStreamBuffer);
+}
+
+function flushJudgeStreamBufferNow() {
+  if (judgeStreamFlushFrame !== null) {
+    cancelAnimationFrame(judgeStreamFlushFrame);
+  }
+  judgeStreamFlushFrame = null;
+  flushJudgeStreamBuffer();
 }
 
 function appendJudgeText(agent, selector, text) {
@@ -184,8 +225,15 @@ function appendJudgeText(agent, selector, text) {
   if (!node || !text) {
     return;
   }
-  node.textContent += text;
-  node.scrollTop = node.scrollHeight;
+
+  const key = `${agent}:${selector}`;
+  let state = judgeStreamStates.get(key);
+  if (!state || state.node !== node) {
+    state = { node, parts: [] };
+    judgeStreamStates.set(key, state);
+  }
+  state.parts.push(text);
+  scheduleJudgeStreamFlush();
 }
 
 function parseSseBlock(block, onEvent) {
@@ -603,6 +651,7 @@ function handleJudgeEvent(eventName, payload) {
   }
 
   if (eventName === "agent_done") {
+    flushJudgeStreamBufferNow();
     const answerNode = getJudgeStreamNode(agent, "[data-answer]");
     if (answerNode && !answerNode.textContent && payload.answer) {
       answerNode.textContent = payload.answer;
@@ -612,12 +661,14 @@ function handleJudgeEvent(eventName, payload) {
   }
 
   if (eventName === "agent_error") {
+    flushJudgeStreamBufferNow();
     setAgentAndThoughtState(agent, "error", "Ошибка");
     setStatus(`${agentLabels[agent] || "Агент"}: ${payload.message}`, "warning");
     return;
   }
 
   if (eventName === "done") {
+    flushJudgeStreamBufferNow();
     const finalAnswer = payload.answer || "Итоговый ответ не получен.";
     const answerNode = getJudgeStreamNode("judge", "[data-answer]");
     setJudgeStage("done", "Судья вынес итоговое решение");
@@ -632,6 +683,7 @@ function handleJudgeEvent(eventName, payload) {
   }
 
   if (eventName === "error") {
+    flushJudgeStreamBufferNow();
     throw new Error(payload.message || "Не удалось завершить проверку");
   }
 }

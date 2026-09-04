@@ -48,6 +48,13 @@ class FakeJudgeProvider:
         yield LlmStreamChunk(content=f"Ответ {agent}.", finish_reason="stop")
 
 
+class BurstJudgeProvider:
+    def stream(self, **kwargs: object) -> Iterator[LlmStreamChunk]:
+        del kwargs
+        for char in "x" * 1024:
+            yield LlmStreamChunk(content=char)
+
+
 def test_judge_runs_first_agent_experts_and_final_judge() -> None:
     provider = FakeJudgeProvider()
     service = LlmJudgeService(provider)  # type: ignore[arg-type]
@@ -76,6 +83,28 @@ def test_judge_runs_first_agent_experts_and_final_judge() -> None:
     assert len(expert_payloads) == 3
     assert all(payload["original_task"] == TASK for payload in expert_payloads)
     assert all(payload["first_agent_answer"] == "Ответ first." for payload in expert_payloads)
+
+
+def test_judge_stream_coalesces_bursty_chunks(monkeypatch) -> None:
+    monkeypatch.setattr("app.services.llm_judge.monotonic", lambda: 0.0)
+    service = LlmJudgeService(BurstJudgeProvider())  # type: ignore[arg-type]
+
+    updates = list(
+        service._stream_agent(
+            agent="first",
+            system_prompt="",
+            user_prompt="",
+        ),
+    )
+
+    content_updates = [update for update in updates if update["type"] == "content"]
+    assert len(content_updates) == 1
+    assert content_updates[0]["text"] == "x" * 1024
+    assert updates[-1] == {
+        "type": "complete",
+        "agent": "first",
+        "answer": "x" * 1024,
+    }
 
 
 class FakeStreamingJudgeService:
