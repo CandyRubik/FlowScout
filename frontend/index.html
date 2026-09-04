@@ -147,22 +147,6 @@
                 aria-label="Граф передачи данных между генератором гипотезы, экспертами и судьёй"
               >
                 <defs>
-                  <linearGradient id="signal-flow" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stop-color="#ffffff" stop-opacity="0.95" />
-                    <stop offset="0.45" stop-color="#c5b7ff" stop-opacity="0.9" />
-                    <stop offset="1" stop-color="#ffc9a5" stop-opacity="0.92" />
-                  </linearGradient>
-                  <linearGradient id="verdict-flow" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0" stop-color="#b6f3dd" stop-opacity="0.95" />
-                    <stop offset="1" stop-color="#ffffff" stop-opacity="0.95" />
-                  </linearGradient>
-                  <filter id="light-glow" x="-100%" y="-100%" width="300%" height="300%">
-                    <feGaussianBlur stdDeviation="5" result="blur" />
-                    <feMerge>
-                      <feMergeNode in="blur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
                 </defs>
                 <g class="thread-base">
                   <path d="M500 180 C500 220 500 250 500 282" />
@@ -173,37 +157,17 @@
                   <path d="M500 485 C500 520 500 545 500 570" />
                   <path d="M780 485 C690 530 595 550 500 570" />
                 </g>
-                <g class="thread-pulses">
-                  <path class="thread-pulse first-route" d="M500 180 C500 220 500 250 500 282" />
-                  <path class="thread-pulse expert-bridge" d="M500 282 C430 300 300 320 220 378" />
-                  <path class="thread-pulse expert-bridge" d="M500 282 C500 315 500 345 500 378" />
-                  <path class="thread-pulse expert-bridge" d="M500 282 C570 300 700 320 780 378" />
-                  <path class="thread-pulse expert-route" d="M220 485 C310 530 405 550 500 570" />
-                  <path class="thread-pulse expert-route" d="M500 485 C500 520 500 545 500 570" />
-                  <path class="thread-pulse expert-route" d="M780 485 C690 530 595 550 500 570" />
-                </g>
-                <g class="data-packets" aria-hidden="true">
-                  <circle class="data-packet first-route" r="5">
-                    <animateMotion dur="2.3s" repeatCount="indefinite" path="M500 180 C500 220 500 250 500 282" />
-                  </circle>
-                  <circle class="data-packet expert-bridge" r="4">
-                    <animateMotion dur="2.4s" repeatCount="indefinite" path="M500 282 C430 300 300 320 220 378" />
-                  </circle>
-                  <circle class="data-packet expert-bridge" r="4">
-                    <animateMotion dur="2.4s" begin="-0.7s" repeatCount="indefinite" path="M500 282 C500 315 500 345 500 378" />
-                  </circle>
-                  <circle class="data-packet expert-bridge" r="4">
-                    <animateMotion dur="2.4s" begin="-1.4s" repeatCount="indefinite" path="M500 282 C570 300 700 320 780 378" />
-                  </circle>
-                  <circle class="data-packet expert-route" r="5">
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M220 485 C310 530 405 550 500 570" />
-                  </circle>
-                  <circle class="data-packet expert-route" r="5">
-                    <animateMotion dur="2.6s" begin="-0.8s" repeatCount="indefinite" path="M500 485 C500 520 500 545 500 570" />
-                  </circle>
-                  <circle class="data-packet expert-route" r="5">
-                    <animateMotion dur="2.6s" begin="-1.6s" repeatCount="indefinite" path="M780 485 C690 530 595 550 500 570" />
-                  </circle>
+                <g class="matrix-streams" aria-hidden="true">
+                  <text class="matrix-glyph matrix-architect" x="0" y="0">0<animateMotion dur="2.1s" repeatCount="indefinite" path="M500 180 C500 220 500 250 500 282" /></text>
+                  <text class="matrix-glyph matrix-architect" x="0" y="0">1<animateMotion dur="2.1s" begin="-0.9s" repeatCount="indefinite" path="M500 180 C500 220 500 250 500 282" /></text>
+
+                  <text class="matrix-glyph matrix-bridge" x="0" y="0">01<animateMotion dur="2.8s" repeatCount="indefinite" path="M500 282 C430 300 300 320 220 378" /></text>
+                  <text class="matrix-glyph matrix-bridge" x="0" y="0">ﾊ0<animateMotion dur="2.8s" begin="-1.3s" repeatCount="indefinite" path="M500 282 C500 315 500 345 500 378" /></text>
+                  <text class="matrix-glyph matrix-bridge" x="0" y="0">11<animateMotion dur="2.8s" begin="-0.6s" repeatCount="indefinite" path="M500 282 C570 300 700 320 780 378" /></text>
+
+                  <text class="matrix-glyph matrix-route" x="0" y="0">10<animateMotion dur="3.1s" repeatCount="indefinite" path="M220 485 C310 530 405 550 500 570" /></text>
+                  <text class="matrix-glyph matrix-route" x="0" y="0">ｴ1<animateMotion dur="3.1s" begin="-1.1s" repeatCount="indefinite" path="M500 485 C500 520 500 545 500 570" /></text>
+                  <text class="matrix-glyph matrix-route" x="0" y="0">11<animateMotion dur="3.1s" begin="-1.9s" repeatCount="indefinite" path="M780 485 C690 530 595 550 500 570" /></text>
                 </g>
               </svg>
 
@@ -481,6 +445,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=judge-cards-v2" defer></script>
+    <script src="app.js?v=judge-cards-perf-v1" defer></script>
   </body>
 </html>

@@ -636,6 +636,7 @@ h3 {
 }
 
 .judge-graph::before {
+  display: none;
   top: 112px;
   left: calc(50% - 8px);
   width: 16px;
@@ -645,6 +646,7 @@ h3 {
 }
 
 .judge-graph::after {
+  display: none;
   right: 16%;
   bottom: 32px;
   width: 170px;
@@ -662,8 +664,7 @@ h3 {
   overflow: visible;
 }
 
-.thread-base path,
-.thread-pulse {
+.thread-base path {
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -674,65 +675,51 @@ h3 {
   stroke-width: 2;
 }
 
-.thread-pulse {
-  stroke: url("#signal-flow");
-  stroke-dasharray: 2 13 30 16;
-  stroke-width: 3;
+.matrix-streams {
+  pointer-events: none;
+}
+
+.matrix-glyph {
+  fill: #9ff2dd;
   opacity: 0;
-  filter: drop-shadow(0 0 5px rgba(135, 119, 255, 0.78));
-  animation: thread-flow 1.8s linear infinite;
-  transition: opacity 300ms ease;
-}
-
-.judge-graph[data-stage="first"] .thread-pulse.first-route,
-.judge-graph[data-stage="experts"] .thread-pulse.first-route,
-.judge-graph[data-stage="judge"] .thread-pulse.first-route,
-.judge-graph[data-stage="done"] .thread-pulse.first-route {
-  opacity: 0.92;
-}
-
-.judge-graph[data-stage="experts"] .thread-pulse.expert-bridge,
-.judge-graph[data-stage="judge"] .thread-pulse.expert-bridge,
-.judge-graph[data-stage="done"] .thread-pulse.expert-bridge {
-  opacity: 0.92;
-}
-
-.judge-graph[data-stage="judge"] .thread-pulse.expert-route,
-.judge-graph[data-stage="done"] .thread-pulse.expert-route {
-  stroke: url("#verdict-flow");
-  opacity: 0.98;
-  filter: drop-shadow(0 0 6px rgba(91, 215, 192, 0.72));
-}
-
-.judge-graph[data-stage="done"] .thread-pulse {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-anchor: middle;
+  filter: none;
+  animation: matrix-flicker 1.3s steps(2, end) infinite;
   animation-play-state: paused;
-  opacity: 0.58;
 }
 
-.judge-graph[data-stage="error"] .thread-pulse,
-.judge-graph[data-stage="error"] .data-packet {
+.judge-graph[data-stage="first"] .matrix-architect,
+.judge-graph[data-stage="experts"] .matrix-architect,
+.judge-graph[data-stage="judge"] .matrix-architect,
+.judge-graph[data-stage="done"] .matrix-architect,
+.judge-graph[data-stage="experts"] .matrix-bridge,
+.judge-graph[data-stage="judge"] .matrix-bridge,
+.judge-graph[data-stage="done"] .matrix-bridge,
+.judge-graph[data-stage="judge"] .matrix-route,
+.judge-graph[data-stage="done"] .matrix-route {
+  opacity: 0.92;
+}
+
+.judge-graph[data-stage="first"] .matrix-architect,
+.judge-graph[data-stage="experts"] .matrix-architect,
+.judge-graph[data-stage="experts"] .matrix-bridge,
+.judge-graph[data-stage="judge"] .matrix-architect,
+.judge-graph[data-stage="judge"] .matrix-bridge,
+.judge-graph[data-stage="judge"] .matrix-route {
+  animation-play-state: running;
+}
+
+.judge-graph[data-stage="done"] .matrix-glyph {
+  animation-play-state: paused;
+  opacity: 0.45;
+}
+
+.judge-graph[data-stage="error"] .matrix-glyph {
   opacity: 0;
-}
-
-.data-packet {
-  fill: #ffffff;
-  opacity: 0;
-  filter: url("#light-glow");
-}
-
-.judge-graph[data-stage="first"] .data-packet.first-route,
-.judge-graph[data-stage="experts"] .data-packet.first-route,
-.judge-graph[data-stage="judge"] .data-packet.first-route,
-.judge-graph[data-stage="done"] .data-packet.first-route,
-.judge-graph[data-stage="experts"] .data-packet.expert-bridge,
-.judge-graph[data-stage="judge"] .data-packet.expert-bridge,
-.judge-graph[data-stage="done"] .data-packet.expert-bridge {
-  opacity: 1;
-}
-
-.judge-graph[data-stage="judge"] .data-packet.expert-route,
-.judge-graph[data-stage="done"] .data-packet.expert-route {
-  opacity: 1;
 }
 
 .agent-node {
@@ -839,6 +826,16 @@ h3 {
   height: 70px;
   overflow: visible;
   animation: icon-float 3.8s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.agent-character * {
+  animation-play-state: paused;
+}
+
+.agent-node.is-active .agent-character,
+.agent-node.is-active .agent-character * {
+  animation-play-state: running;
 }
 
 .agent-node[data-agent="engineer"] .agent-character {
@@ -1099,6 +1096,83 @@ h3 {
   stroke-width: 1.4;
 }
 
+/* Keep the existing judge flow, but give each specialist a distinct active heartbeat. */
+.agent-node.is-active[data-agent="first"] .icon-orb-glass {
+  animation: orb-breathe-active 1.15s ease-in-out infinite;
+}
+
+.agent-node.is-active[data-agent="first"] .icon-orb-orbit {
+  animation: orb-orbit-active 1.7s linear infinite;
+}
+
+.agent-node.is-active[data-agent="engineer"] .icon-engineer-trace {
+  stroke-dasharray: 5 5;
+  animation: engineer-trace-flow 0.8s linear infinite;
+}
+
+.agent-node.is-active[data-agent="engineer"] .icon-engineer-node {
+  animation: engineer-node-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.agent-node.is-active[data-agent="engineer"] .icon-engineer-bolt {
+  animation: engineer-bolt-flicker 0.75s steps(2, end) infinite;
+}
+
+.agent-node.is-active[data-agent="analyst"] .icon-analyst-bar {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: analyst-bars 1.1s ease-in-out infinite alternate;
+}
+
+.agent-node.is-active[data-agent="analyst"] .icon-analyst-trend {
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  animation: analyst-trend-draw 1.4s ease-out infinite;
+}
+
+.agent-node.is-active[data-agent="analyst"] .icon-analyst-lens {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: analyst-lens-scan 1.35s ease-in-out infinite;
+}
+
+.agent-node.is-active[data-agent="process_pm"] .icon-process-route {
+  stroke-dasharray: 7 5;
+  animation: reliability-route-flow 0.95s linear infinite;
+}
+
+.agent-node.is-active[data-agent="process_pm"] .icon-process-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: reliability-node-pulse 1.15s ease-in-out infinite;
+}
+
+.agent-node.is-active[data-agent="process_pm"] .icon-process-diamond {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: reliability-diamond-turn 1.8s ease-in-out infinite;
+}
+
+.agent-node.is-active[data-agent="judge"] .icon-judge-scale {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: synthesizer-balance 1.15s ease-in-out infinite;
+}
+
+.agent-node.is-active[data-agent="judge"] .icon-judge-hub {
+  animation: synthesizer-hub-pulse 0.95s ease-in-out infinite;
+}
+
+.agent-node.is-active[data-agent="judge"] .icon-judge-check {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  animation: check-draw 1.3s ease-out infinite;
+}
+
+.agent-node.is-done .icon-judge-check {
+  stroke-dashoffset: 0;
+}
+
 .agent-copy {
   min-width: 0;
 }
@@ -1161,6 +1235,9 @@ h3 {
 
 .thought-card {
   min-width: 0;
+  content-visibility: auto;
+  contain: layout paint style;
+  contain-intrinsic-size: 360px;
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 16px;
@@ -1221,6 +1298,7 @@ h3 {
 
 .reasoning-stream,
 .answer-stream {
+  contain: content;
   min-height: 48px;
   margin-top: 7px;
   overflow: auto;
@@ -1564,6 +1642,18 @@ h3 {
   }
 }
 
+@keyframes matrix-flicker {
+  0%,
+  100% {
+    opacity: 0.58;
+    transform: translateX(-1px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(1px);
+  }
+}
+
 @keyframes orb-breathe {
   0%,
   100% {
@@ -1595,6 +1685,140 @@ h3 {
   50% {
     opacity: 1;
     transform: scale(1.1);
+  }
+}
+
+@keyframes orb-breathe-active {
+  0%,
+  100% {
+    transform: scale(0.98);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes orb-orbit-active {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes engineer-trace-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@keyframes engineer-node-pulse {
+  from {
+    transform: scale(0.82);
+    opacity: 0.72;
+  }
+  to {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+}
+
+@keyframes engineer-bolt-flicker {
+  0%,
+  35%,
+  100% {
+    opacity: 1;
+  }
+  36%,
+  48% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes analyst-bars {
+  from {
+    transform: scaleY(0.72);
+  }
+  to {
+    transform: scaleY(1.12);
+  }
+}
+
+@keyframes analyst-trend-draw {
+  0%,
+  12% {
+    stroke-dashoffset: 48;
+  }
+  72%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes analyst-lens-scan {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(0.94);
+  }
+  50% {
+    transform: translate(-3px, -2px) scale(1.08);
+  }
+}
+
+@keyframes reliability-route-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@keyframes reliability-node-pulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes reliability-diamond-turn {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(45deg);
+  }
+}
+
+@keyframes synthesizer-balance {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes synthesizer-hub-pulse {
+  0%,
+  100% {
+    transform: scale(0.82);
+  }
+  50% {
+    transform: scale(1.22);
+  }
+}
+
+@keyframes check-draw {
+  0%,
+  18% {
+    stroke-dashoffset: 22;
+    opacity: 0.4;
+  }
+  65%,
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
   }
 }
 
@@ -1694,6 +1918,7 @@ h3 {
   }
 
   .judge-graph::before {
+    display: block;
     top: 156px;
     bottom: 154px;
     left: 50%;

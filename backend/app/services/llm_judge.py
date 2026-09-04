@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 import queue
+from time import monotonic
 from typing import Any
 
 from ..prompts import (
@@ -22,6 +23,7 @@ from ..schemas import JudgeRequest
 
 
 JudgeUpdate = dict[str, Any]
+STREAM_UPDATE_INTERVAL_SECONDS = 0.05
 
 
 EXPERT_LABELS = {
@@ -45,6 +47,26 @@ class LlmJudgeService:
         max_tokens: int | None = None,
     ) -> Iterator[JudgeUpdate]:
         answer_parts: list[str] = []
+        pending_text: list[tuple[str, list[str]]] = []
+        last_emit = monotonic()
+
+        def queue_text(update_type: str, text: str) -> None:
+            if pending_text and pending_text[-1][0] == update_type:
+                pending_text[-1][1].append(text)
+            else:
+                pending_text.append((update_type, [text]))
+
+        def flush_pending() -> Iterator[JudgeUpdate]:
+            nonlocal last_emit
+            for update_type, parts in pending_text:
+                yield {
+                    "type": update_type,
+                    "agent": agent,
+                    "text": "".join(parts),
+                }
+            pending_text.clear()
+            last_emit = monotonic()
+
         stream_kwargs: dict[str, Any] = {
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
@@ -55,25 +77,24 @@ class LlmJudgeService:
 
         for chunk in self._provider.stream(**stream_kwargs):
             if chunk.status:
+                yield from flush_pending()
                 yield {
                     "type": "status",
                     "agent": agent,
                     "message": chunk.status,
                 }
             if chunk.reasoning:
-                yield {
-                    "type": "reasoning",
-                    "agent": agent,
-                    "text": chunk.reasoning,
-                }
+                queue_text("reasoning", chunk.reasoning)
             if chunk.content:
                 answer_parts.append(chunk.content)
-                yield {
-                    "type": "content",
-                    "agent": agent,
-                    "text": chunk.content,
-                }
+                queue_text("content", chunk.content)
+            if (
+                pending_text
+                and monotonic() - last_emit >= STREAM_UPDATE_INTERVAL_SECONDS
+            ):
+                yield from flush_pending()
 
+        yield from flush_pending()
         yield {
             "type": "complete",
             "agent": agent,
