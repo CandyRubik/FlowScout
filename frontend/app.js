@@ -3,6 +3,7 @@ const API_BASE_URL = (window.API_BASE_URL || "http://localhost:8000").replace(/\
 const taskForm = document.querySelector("#task-form");
 const taskInput = document.querySelector("#task-input");
 const startButton = document.querySelector("#start-button");
+const benchmarkButton = document.querySelector("#benchmark-button");
 const judgeSection = document.querySelector("#judge-section");
 const judgeGraph = document.querySelector("#judge-graph");
 const judgeTask = document.querySelector("#judge-task");
@@ -17,13 +18,46 @@ const decisionTaskCount = document.querySelector("#decision-task-count");
 const decisionSource = document.querySelector("#judge-decision-source");
 const resetButton = document.querySelector("#reset-button");
 const status = document.querySelector("#status");
+const benchmarkSection = document.querySelector("#benchmark-section");
+const benchmarkTask = document.querySelector("#benchmark-task");
+const benchmarkStageLabel = document.querySelector("#benchmark-stage-label");
+const benchmarkResults = document.querySelector("#benchmark-results");
+const benchmarkSummary = document.querySelector("#benchmark-summary");
+const benchmarkAnswers = document.querySelector("#benchmark-answers");
 
 let isBusy = false;
 let judgeAbortController = null;
 let requestSequence = 0;
 let judgeHasFinished = false;
+let benchmarkHasFinished = false;
 const judgeStreamStates = new Map();
 let judgeStreamFlushFrame = null;
+
+const benchmarkVariants = [
+  {
+    key: "weak",
+    label: "Слабая",
+    model: "deepseek-v4-flash",
+    thinking_type: "disabled",
+    reasoning_effort: null,
+  },
+  {
+    key: "medium",
+    label: "Средняя",
+    model: "deepseek-v4-flash",
+    thinking_type: "enabled",
+    reasoning_effort: "high",
+  },
+  {
+    key: "strong",
+    label: "Сильная",
+    model: "deepseek-v4-pro",
+    thinking_type: "enabled",
+    reasoning_effort: "high",
+  },
+];
+
+const benchmarkRows = new Map();
 
 const agentLabels = {
   first: "Генератор гипотезы",
@@ -44,7 +78,7 @@ function setStatus(message, kind = "") {
   status.dataset.kind = kind;
 }
 
-function setBusy(value) {
+function setBusy(value, mode = "judge") {
   isBusy = value;
   for (const element of taskForm.querySelectorAll("textarea, button")) {
     element.disabled = value;
@@ -52,8 +86,13 @@ function setBusy(value) {
   resetButton.disabled = false;
   resetButton.textContent = value ? "Остановить" : "Новая проверка";
   startButton.querySelector("span").textContent = value
-    ? "Разбираем роль…"
+    ? mode === "benchmark"
+      ? "Сравниваем…"
+      : "Разбираем роль…"
     : "Разобрать роль";
+  benchmarkButton.querySelector("span").textContent = value && mode === "benchmark"
+    ? "Сравниваем…"
+    : "Сравнить модели";
 }
 
 function errorMessage(data) {
@@ -172,6 +211,7 @@ function clearJudgeStreams() {
 
 function resetJudgeView(task) {
   judgeHasFinished = false;
+  benchmarkSection.hidden = true;
   judgeTask.textContent = task;
   judgeDecision.hidden = true;
   decisionSummary.textContent = "";
@@ -254,8 +294,8 @@ function parseSseBlock(block, onEvent) {
   onEvent(eventName, JSON.parse(dataLines.join("\n")));
 }
 
-async function requestJudgeStream(payload, onEvent, signal) {
-  const response = await fetch(`${API_BASE_URL}/api/llm-as-judge`, {
+async function requestSseStream(path, payload, onEvent, signal) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: {
       Accept: "text/event-stream",
@@ -295,6 +335,14 @@ async function requestJudgeStream(payload, onEvent, signal) {
   if (buffer.trim()) {
     parseSseBlock(buffer, onEvent);
   }
+}
+
+async function requestJudgeStream(payload, onEvent, signal) {
+  return requestSseStream("/api/llm-as-judge", payload, onEvent, signal);
+}
+
+async function requestBenchmarkStream(payload, onEvent, signal) {
+  return requestSseStream("/api/day5-benchmark", payload, onEvent, signal);
 }
 
 function asText(value) {
@@ -607,6 +655,160 @@ function renderDecision(finalAnswer) {
   return { ...parsed, tasks };
 }
 
+function formatBenchmarkDuration(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "—";
+  }
+  return value >= 1000
+    ? `${(value / 1000).toFixed(2)} с`
+    : `${Math.round(value)} мс`;
+}
+
+function formatBenchmarkTokens(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "—";
+  }
+  return new Intl.NumberFormat("ru-RU").format(Math.round(value));
+}
+
+function formatBenchmarkCost(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "—";
+  }
+  return `$${value.toFixed(6)}`;
+}
+
+function benchmarkVariantConfig(variant) {
+  if (variant.thinking_type === "disabled") {
+    return "thinking off";
+  }
+  return `thinking on · effort ${variant.reasoning_effort || "default"}`;
+}
+
+function createBenchmarkRow(variant) {
+  const row = document.createElement("tr");
+  row.dataset.variant = variant.key;
+
+  const level = document.createElement("td");
+  level.className = "benchmark-level";
+  level.textContent = variant.label;
+
+  const config = document.createElement("td");
+  config.className = "benchmark-config";
+  const model = document.createElement("span");
+  model.textContent = variant.model;
+  const settings = document.createElement("small");
+  settings.textContent = benchmarkVariantConfig(variant);
+  config.append(model, settings);
+
+  const cells = { level, config };
+  for (const key of ["status", "duration", "tokens", "reasoning", "cost", "quality"]) {
+    const cell = document.createElement("td");
+    cell.className = `benchmark-cell-${key}`;
+    cells[key] = cell;
+  }
+  cells.status.dataset.state = "pending";
+  cells.status.textContent = "Ожидает";
+  cells.duration.textContent = "—";
+  cells.tokens.textContent = "—";
+  cells.reasoning.textContent = "—";
+  cells.cost.textContent = "—";
+  cells.quality.dataset.state = "pending";
+  cells.quality.textContent = "—";
+
+  row.append(
+    level,
+    config,
+    cells.status,
+    cells.duration,
+    cells.tokens,
+    cells.reasoning,
+    cells.cost,
+    cells.quality,
+  );
+  benchmarkRows.set(variant.key, { cells });
+  return row;
+}
+
+function renderBenchmarkRows(variants) {
+  benchmarkRows.clear();
+  benchmarkResults.replaceChildren(
+    ...variants.map((variant) => createBenchmarkRow(variant)),
+  );
+}
+
+function setBenchmarkVariantStatus(key, message, state = "") {
+  const row = benchmarkRows.get(key);
+  if (!row) {
+    return;
+  }
+  row.cells.status.textContent = message;
+  row.cells.status.dataset.state = state;
+}
+
+function renderBenchmarkAnswer(result) {
+  const variant = result.variant || {};
+  const details = document.createElement("details");
+  details.className = "benchmark-answer";
+  const summary = document.createElement("summary");
+  summary.textContent = `${variant.label || variant.key || "Модель"} — ответ судьи`;
+  const answer = document.createElement("pre");
+  answer.textContent = result.final_answer || (
+    result.error_type ? `Ошибка: ${result.error_type}` : "Ответ не получен."
+  );
+  details.append(summary, answer);
+  benchmarkAnswers.append(details);
+}
+
+function renderBenchmarkResult(result) {
+  const key = result.variant?.key;
+  const row = benchmarkRows.get(key);
+  if (!row) {
+    return;
+  }
+
+  const quality = result.automatic_quality || {};
+  const success = Boolean(result.success);
+  const requestCount = Number(result.request_count);
+  row.cells.status.textContent = success
+    ? requestCount > 5
+      ? `Готово · ${requestCount} вызовов`
+      : "Готово"
+    : `Ошибка${result.error_type ? ` · ${result.error_type}` : ""}`;
+  row.cells.status.dataset.state = success ? "success" : "error";
+  row.cells.duration.textContent = formatBenchmarkDuration(result.duration_ms);
+  row.cells.tokens.textContent = formatBenchmarkTokens(result.usage?.total_tokens);
+  row.cells.reasoning.textContent = formatBenchmarkTokens(
+    result.usage?.reasoning_tokens,
+  );
+  row.cells.cost.textContent = formatBenchmarkCost(result.cost_usd);
+  row.cells.quality.textContent = quality.contract_valid
+    ? "Валиден"
+    : quality.json_valid
+      ? "Неполный"
+      : "Ошибка";
+  row.cells.quality.dataset.state = quality.contract_valid
+    ? "success"
+    : quality.json_valid
+      ? "partial"
+      : "error";
+  renderBenchmarkAnswer(result);
+}
+
+function resetBenchmarkView(task) {
+  benchmarkHasFinished = false;
+  judgeSection.hidden = true;
+  benchmarkSection.hidden = false;
+  benchmarkSection.querySelector(".benchmark-live-status").dataset.state = "";
+  benchmarkTask.textContent = task;
+  benchmarkStageLabel.textContent = "Запускаем сравнение…";
+  benchmarkSummary.hidden = true;
+  benchmarkSummary.textContent = "";
+  benchmarkAnswers.replaceChildren();
+  renderBenchmarkRows(benchmarkVariants);
+  benchmarkSection.scrollIntoView({ behavior: "auto", block: "start" });
+}
+
 function formatJudgeAnswer(decision) {
   const lines = [];
   if (decision.summary) {
@@ -619,6 +821,65 @@ function formatJudgeAnswer(decision) {
     });
   }
   return lines.join("\n") || "Итоговое решение сформировано.";
+}
+
+function handleBenchmarkEvent(eventName, payload) {
+  if (eventName === "benchmark_start") {
+    renderBenchmarkRows(payload.variants || benchmarkVariants);
+    benchmarkStageLabel.textContent = "Ожидаем первый результат…";
+    return;
+  }
+
+  if (eventName === "variant_start") {
+    const variant = payload.variant || {};
+    const key = variant.key;
+    setBenchmarkVariantStatus(key, "Выполняется", "running");
+    benchmarkStageLabel.textContent = `${variant.label || key}: запускаем workflow…`;
+    setStatus(`Сравнение: ${variant.label || key}`);
+    return;
+  }
+
+  if (eventName === "variant_stage") {
+    const key = payload.variant;
+    const row = benchmarkRows.get(key);
+    const label = row?.cells.level.textContent || key;
+    setBenchmarkVariantStatus(key, payload.message || "Выполняется", "running");
+    benchmarkStageLabel.textContent = `${label}: ${payload.message || "следующий этап"}`;
+    setStatus(benchmarkStageLabel.textContent);
+    return;
+  }
+
+  if (eventName === "variant_agent_done") {
+    const key = payload.variant;
+    const row = benchmarkRows.get(key);
+    if (row && payload.agent) {
+      setBenchmarkVariantStatus(
+        key,
+        `${row.cells.status.textContent} · ${payload.agent}`,
+        "running",
+      );
+    }
+    return;
+  }
+
+  if (eventName === "variant_result") {
+    renderBenchmarkResult(payload);
+    return;
+  }
+
+  if (eventName === "benchmark_done") {
+    benchmarkHasFinished = true;
+    benchmarkSummary.hidden = false;
+    benchmarkSummary.textContent = `Сравнение завершено · ${payload.summary?.length || 0} конфигурации · общая стоимость ${formatBenchmarkCost(payload.measured_cost_usd)}`;
+    benchmarkStageLabel.textContent = "Сравнение завершено";
+    benchmarkSection.querySelector(".benchmark-live-status").dataset.state = "done";
+    setStatus("Сравнение моделей завершено");
+    return;
+  }
+
+  if (eventName === "error") {
+    throw new Error(payload.message || "Не удалось завершить сравнение");
+  }
 }
 
 function handleJudgeEvent(eventName, payload) {
@@ -725,6 +986,46 @@ async function runJudge(task) {
   }
 }
 
+async function runBenchmark(task) {
+  if (isBusy) {
+    return;
+  }
+
+  const runId = ++requestSequence;
+  judgeAbortController = new AbortController();
+  resetBenchmarkView(task);
+  resetButton.hidden = false;
+  setBusy(true, "benchmark");
+  setStatus("Сравниваем три конфигурации DeepSeek…");
+
+  try {
+    await requestBenchmarkStream(
+      { task },
+      (eventName, payload) => handleBenchmarkEvent(eventName, payload),
+      judgeAbortController.signal,
+    );
+    if (!benchmarkHasFinished) {
+      throw new Error("Поток завершился до окончания сравнения");
+    }
+  } catch (error) {
+    if (error.name === "AbortError") {
+      benchmarkStageLabel.textContent = "Сравнение остановлено";
+      benchmarkSection.querySelector(".benchmark-live-status").dataset.state = "error";
+      setStatus("Сравнение остановлено", "warning");
+    } else {
+      benchmarkStageLabel.textContent = "Сравнение не завершено";
+      benchmarkSection.querySelector(".benchmark-live-status").dataset.state = "error";
+      setStatus(error.message || "Не удалось завершить сравнение", "error");
+    }
+  } finally {
+    if (runId === requestSequence) {
+      judgeAbortController = null;
+      setBusy(false);
+      resetButton.hidden = false;
+    }
+  }
+}
+
 function resetApp() {
   requestSequence += 1;
   if (judgeAbortController) {
@@ -733,6 +1034,7 @@ function resetApp() {
   }
   taskForm.reset();
   judgeSection.hidden = true;
+  benchmarkSection.hidden = true;
   judgeDecision.hidden = true;
   clearJudgeStreams();
   resetButton.hidden = true;
@@ -751,6 +1053,18 @@ taskForm.addEventListener("submit", (event) => {
 });
 
 resetButton.addEventListener("click", resetApp);
+
+benchmarkButton.addEventListener("click", () => {
+  const task = taskInput.value.trim();
+  if (isBusy) {
+    return;
+  }
+  if (!task || task.length < 10) {
+    taskInput.reportValidity();
+    return;
+  }
+  runBenchmark(task);
+});
 
 async function checkHealth() {
   try {

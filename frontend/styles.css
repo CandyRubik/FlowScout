@@ -476,6 +476,7 @@ h3 {
 .form-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 16px;
 }
 
@@ -547,6 +548,202 @@ h3 {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.14);
   font-size: 16px;
+}
+
+.benchmark-section {
+  margin-top: 50px;
+  border-top: 1px solid var(--line-soft);
+  padding-top: 33px;
+}
+
+.benchmark-heading {
+  align-items: start;
+}
+
+.benchmark-description {
+  max-width: 650px;
+  margin-top: 9px;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.benchmark-live-status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-soft);
+  font-size: 12px;
+  text-align: right;
+}
+
+.benchmark-live-status[data-state="done"] .live-dot {
+  background: var(--cyan);
+  box-shadow: 0 0 0 5px rgba(91, 215, 192, 0.12), 0 0 16px rgba(91, 215, 192, 0.68);
+  animation: none;
+}
+
+.benchmark-live-status[data-state="error"] .live-dot {
+  background: var(--red);
+  box-shadow: 0 0 0 5px rgba(255, 137, 156, 0.12), 0 0 16px rgba(255, 137, 156, 0.68);
+  animation: none;
+}
+
+.benchmark-task-card {
+  margin-top: 22px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--cyan);
+  border-radius: 11px;
+  padding: 14px 16px;
+  background: #0b1222;
+}
+
+.benchmark-task-card p {
+  margin-top: 7px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.benchmark-table-shell {
+  margin-top: 22px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #0b1222;
+}
+
+.benchmark-table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.benchmark-table th,
+.benchmark-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  text-align: left;
+  vertical-align: top;
+}
+
+.benchmark-table th {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.benchmark-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.benchmark-level {
+  color: var(--text);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.benchmark-config {
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.benchmark-config small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted-dark);
+  font-size: 10px;
+}
+
+.benchmark-cell-status,
+.benchmark-cell-quality {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.benchmark-cell-status[data-state="running"] {
+  color: var(--orange);
+}
+
+.benchmark-cell-status[data-state="success"],
+.benchmark-cell-quality[data-state="success"] {
+  color: var(--cyan-soft);
+}
+
+.benchmark-cell-status[data-state="error"],
+.benchmark-cell-quality[data-state="error"] {
+  color: var(--red);
+}
+
+.benchmark-cell-quality[data-state="partial"] {
+  color: var(--orange);
+}
+
+.benchmark-summary {
+  margin-top: 16px;
+  border: 1px solid #397d79;
+  border-radius: 12px;
+  padding: 13px 15px;
+  background: #112b30;
+  color: var(--cyan-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.benchmark-answers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.benchmark-answer {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0d1727;
+}
+
+.benchmark-answer summary {
+  cursor: pointer;
+  padding: 13px 14px;
+  color: var(--text-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.benchmark-answer pre {
+  max-height: 300px;
+  overflow: auto;
+  border-top: 1px solid var(--line-soft);
+  padding: 13px 14px;
+  color: var(--cyan-soft);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.benchmark-note {
+  margin-top: 14px;
+  color: var(--muted-dark);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .judge-section {
@@ -1909,8 +2106,20 @@ h3 {
     flex-direction: column;
   }
 
+  .benchmark-heading {
+    flex-direction: column;
+  }
+
   .judge-live-status {
     text-align: left;
+  }
+
+  .benchmark-live-status {
+    text-align: left;
+  }
+
+  .benchmark-answers {
+    grid-template-columns: 1fr;
   }
 
   .judge-graph {

@@ -33,8 +33,9 @@ def stream_chunk(
     reasoning: str = "",
     content: str = "",
     finish_reason: str | None = None,
+    usage: dict[str, object] | None = None,
 ) -> SimpleNamespace:
-    return SimpleNamespace(
+    chunk = SimpleNamespace(
         choices=[
             SimpleNamespace(
                 finish_reason=finish_reason,
@@ -45,6 +46,18 @@ def stream_chunk(
             ),
         ],
     )
+    if usage is not None:
+        chunk.usage = SimpleNamespace(
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+            total_tokens=usage.get("total_tokens"),
+            prompt_cache_hit_tokens=usage.get("prompt_cache_hit_tokens"),
+            prompt_cache_miss_tokens=usage.get("prompt_cache_miss_tokens"),
+            completion_tokens_details=SimpleNamespace(
+                reasoning_tokens=usage.get("reasoning_tokens"),
+            ),
+        )
+    return chunk
 
 
 def test_provider_uses_structured_analysis_defaults() -> None:
@@ -141,6 +154,69 @@ def test_provider_streams_reasoning_and_content() -> None:
     assert completions.requests[0]["extra_body"] == {
         "thinking": {"type": "enabled"},
     }
+    assert completions.requests[0]["stream_options"] == {
+        "include_usage": True,
+    }
+
+
+def test_provider_reads_usage_from_the_final_stream_chunk() -> None:
+    completions = FakeCompletions(
+        iter(
+            [
+                stream_chunk(content="Ответ."),
+                stream_chunk(
+                    finish_reason="stop",
+                    usage={
+                        "prompt_tokens": 10,
+                        "completion_tokens": 12,
+                        "total_tokens": 22,
+                        "prompt_cache_hit_tokens": 4,
+                        "prompt_cache_miss_tokens": 6,
+                        "reasoning_tokens": 7,
+                    },
+                ),
+            ],
+        ),
+    )
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=completions),
+    )
+    provider = DeepSeekProvider(client=client)  # type: ignore[arg-type]
+
+    chunks = list(provider.stream(system_prompt="system", user_prompt="user"))
+
+    assert chunks[-1].usage is not None
+    assert chunks[-1].usage.prompt_tokens == 10
+    assert chunks[-1].usage.completion_tokens == 12
+    assert chunks[-1].usage.prompt_cache_hit_tokens == 4
+    assert chunks[-1].usage.prompt_cache_miss_tokens == 6
+    assert chunks[-1].usage.reasoning_tokens == 7
+
+
+def test_provider_honours_explicit_model_and_disabled_thinking() -> None:
+    completions = FakeCompletions(
+        iter([stream_chunk(content="Ответ.", finish_reason="stop")]),
+    )
+    client = SimpleNamespace(
+        chat=SimpleNamespace(completions=completions),
+    )
+    provider = DeepSeekProvider(
+        client=client,  # type: ignore[arg-type]
+        model="deepseek-v4-pro",
+        thinking_type="disabled",
+        user_id="day5-weak-1",
+        retry_without_thinking=False,
+    )
+
+    list(provider.stream(system_prompt="system", user_prompt="user"))
+
+    request = completions.requests[0]
+    assert request["model"] == "deepseek-v4-pro"
+    assert request["extra_body"] == {
+        "thinking": {"type": "disabled"},
+        "user_id": "day5-weak-1",
+    }
+    assert "reasoning_effort" not in request
 
 
 def test_provider_retries_empty_stream_without_thinking() -> None:

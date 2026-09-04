@@ -9,6 +9,7 @@ from app.main import app, get_llm_judge_service
 from app.providers.deepseek import LlmStreamChunk
 from app.schemas import JudgeRequest
 from app.services.llm_judge import LlmJudgeService
+from app.services.llm_metrics import LlmMetricsCollector
 
 
 TASK = "Стоит ли автоматизировать еженедельную сверку заказов?"
@@ -17,6 +18,7 @@ TASK = "Стоит ли автоматизировать еженедельну�
 class FakeJudgeProvider:
     def __init__(self) -> None:
         self.calls: list[dict[str, str]] = []
+        self.max_tokens_calls: list[int | None] = []
 
     def stream(
         self,
@@ -26,7 +28,8 @@ class FakeJudgeProvider:
         response_format: dict[str, object] | None = None,
         max_tokens: int | None = None,
     ) -> Iterator[LlmStreamChunk]:
-        del response_format, max_tokens
+        del response_format
+        self.max_tokens_calls.append(max_tokens)
         self.calls.append(
             {
                 "system_prompt": system_prompt,
@@ -57,7 +60,8 @@ class BurstJudgeProvider:
 
 def test_judge_runs_first_agent_experts_and_final_judge() -> None:
     provider = FakeJudgeProvider()
-    service = LlmJudgeService(provider)  # type: ignore[arg-type]
+    metrics = LlmMetricsCollector()
+    service = LlmJudgeService(provider, metrics=metrics)  # type: ignore[arg-type]
 
     updates = list(service.stream(JudgeRequest(task=TASK)))
 
@@ -65,6 +69,7 @@ def test_judge_runs_first_agent_experts_and_final_judge() -> None:
     assert stages == ["first", "experts", "judge"]
     assert updates[-1]["type"] == "done"
     assert updates[-1]["answer"] == "Ответ judge."
+    assert provider.max_tokens_calls == [10_000] * 5
 
     completed_agents = {
         update["agent"]
@@ -83,6 +88,14 @@ def test_judge_runs_first_agent_experts_and_final_judge() -> None:
     assert len(expert_payloads) == 3
     assert all(payload["original_task"] == TASK for payload in expert_payloads)
     assert all(payload["first_agent_answer"] == "Ответ first." for payload in expert_payloads)
+    assert {metric.agent for metric in metrics.calls} == {
+        "first",
+        "engineer",
+        "analyst",
+        "process_pm",
+        "judge",
+    }
+    assert all(metric.success for metric in metrics.calls)
 
 
 def test_judge_stream_coalesces_bursty_chunks(monkeypatch) -> None:

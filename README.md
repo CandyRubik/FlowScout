@@ -62,6 +62,15 @@ python3.13 -m http.server 3000 --directory frontend
 По умолчанию frontend обращается к API на `http://localhost:8000`. Для другого
 адреса до подключения `app.js` можно задать `window.API_BASE_URL`.
 
+В форме доступны два режима: «Разобрать роль» запускает обычный judge-workflow,
+а «Сравнить модели» отправляет тот же запрос через weak, medium и strong
+конфигурации и показывает в интерфейсе время, токены, reasoning-токены,
+стоимость и валидность JSON. Frontend-режим выполняет по одному измерительному
+прогону на конфигурацию; для статистики по нескольким повторам используйте
+CLI-бенчмарк ниже. Если thinking-поток не успевает вернуть финальный ответ,
+benchmark повторяет этот вызов без thinking; повтор включается в метрики и
+стоимость.
+
 ## API
 
 - `GET /api/health` — проверка доступности backend и наличия ключа;
@@ -69,6 +78,8 @@ python3.13 -m http.server 3000 --directory frontend
   обратной совместимости;
 - `POST /api/llm-as-judge` — потоковая проверка одной задачи через первого
   агента, трёх экспертов и финального судью.
+- `POST /api/day5-benchmark` — потоковое сравнение трёх конфигураций DeepSeek;
+  тело запроса такое же, как у judge-ручки: `{ "task": "..." }`.
 
 Пример запроса для legacy-ручки:
 
@@ -103,6 +114,36 @@ python3.13 -m http.server 3000 --directory frontend
 `tasks`; каждая задача содержит `title`, `description`, `recommendation`,
 `rationale` и `assumptions`, чтобы frontend мог показать решение отдельными
 карточками действий.
+
+## Эксперимент моделей (Day 5)
+
+Benchmark запускает один и тот же запрос через весь judge-пайплайн в трёх
+конфигурациях DeepSeek:
+
+- `weak`: `deepseek-v4-flash`, thinking отключён;
+- `medium`: `deepseek-v4-flash`, thinking включён, `reasoning_effort=high`;
+- `strong`: `deepseek-v4-pro`, thinking включён, `reasoning_effort=high`.
+
+Запускать из `backend` после установки зависимостей:
+
+```bash
+python -m benchmarks.day5_model_versions --repetitions 3 --warmup 1
+```
+
+Команда выполняет 12 полных прогонов по умолчанию: 3 прогрева и 9 измерений.
+Один полный прогон содержит пять обращений к API: первый агент, три эксперта
+и финальный судья. Результаты сохраняются в `backend/benchmarks/results/`, а
+секреты и ключ DeepSeek в файлы не записываются.
+
+Benchmark измеряет wall-clock latency всего workflow и параллельной группы
+экспертов, время до первого reasoning/content, успешность, JSON-контракт,
+prompt/completion/reasoning/total tokens, cache hit/miss и стоимость. Для
+качества используется автоматическая проверка контракта; содержательную оценку
+нужно провести отдельно по финальным ответам.
+
+Для минимального платного прогона используйте `--repetitions 1 --warmup 0`.
+Текущие цены и правила peak/off-peak необходимо сверять с [официальной
+таблицей DeepSeek](https://api-docs.deepseek.com/quick_start/pricing/).
 
 ## Проверки
 

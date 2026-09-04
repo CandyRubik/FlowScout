@@ -8,7 +8,7 @@
       content="FlowScout превращает описание роли в основу автоматизированного n8n-пайплайна"
     />
     <title>FlowScout — роль в n8n-пайплайн</title>
-    <link rel="stylesheet" href="styles.css?v=judge-cards" />
+    <link rel="stylesheet" href="styles.css?v=day5-benchmark-v1" />
   </head>
   <body>
     <main class="app-shell">
@@ -112,9 +112,66 @@
                 <span>Разобрать роль</span>
                 <span class="button-spark" aria-hidden="true">↗</span>
               </button>
+              <button id="benchmark-button" class="button button-secondary" type="button">
+                <span>Сравнить модели</span>
+                <span class="button-spark" aria-hidden="true">≈</span>
+              </button>
               <span class="form-note"><span class="note-dot"></span>Агенты выделят точки автоматизации</span>
             </div>
           </form>
+
+          <section
+            id="benchmark-section"
+            class="benchmark-section"
+            aria-labelledby="benchmark-title"
+            hidden
+          >
+            <div class="section-heading benchmark-heading">
+              <div>
+                <p class="eyebrow">День 5 / эксперимент</p>
+                <h2 id="benchmark-title">Сравнение версий моделей</h2>
+                <p class="benchmark-description">
+                  Один и тот же запрос проходит через три конфигурации DeepSeek.
+                  Один запуск стоит 15 обращений к API.
+                </p>
+              </div>
+              <div class="benchmark-live-status" role="status">
+                <span class="live-dot" aria-hidden="true"></span>
+                <span id="benchmark-stage-label">Готовим сравнение…</span>
+              </div>
+            </div>
+
+            <div class="benchmark-task-card">
+              <span class="stream-label">Единый запрос</span>
+              <p id="benchmark-task"></p>
+            </div>
+
+            <div class="benchmark-table-shell">
+              <table class="benchmark-table">
+                <caption class="sr-only">Результаты сравнения конфигураций DeepSeek</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Уровень</th>
+                    <th scope="col">Конфигурация</th>
+                    <th scope="col">Статус</th>
+                    <th scope="col">Время</th>
+                    <th scope="col">Токены</th>
+                    <th scope="col">Reasoning</th>
+                    <th scope="col">Стоимость</th>
+                    <th scope="col">JSON</th>
+                  </tr>
+                </thead>
+                <tbody id="benchmark-results"></tbody>
+              </table>
+            </div>
+
+            <div class="benchmark-summary" id="benchmark-summary" hidden></div>
+            <div class="benchmark-answers" id="benchmark-answers"></div>
+            <p class="benchmark-note">
+              Автоматическая проверка оценивает формат и обязательные поля ответа.
+              Содержательное качество сравнивайте по раскрывающимся ответам судьи.
+            </p>
+          </section>
 
           <section
             id="judge-section"
@@ -445,6 +502,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=judge-cards-perf-v1" defer></script>
+    <script src="app.js?v=day5-benchmark-v2" defer></script>
   </body>
 </html>

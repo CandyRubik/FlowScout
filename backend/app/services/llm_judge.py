@@ -20,10 +20,12 @@ from ..providers.deepseek import (
     LlmStreamChunk,
 )
 from ..schemas import JudgeRequest
+from .llm_metrics import LlmMetricsCollector
 
 
 JudgeUpdate = dict[str, Any]
 STREAM_UPDATE_INTERVAL_SECONDS = 0.05
+JUDGE_MAX_TOKENS = 10_000
 
 
 EXPERT_LABELS = {
@@ -34,8 +36,13 @@ EXPERT_LABELS = {
 
 
 class LlmJudgeService:
-    def __init__(self, provider: DeepSeekProvider) -> None:
+    def __init__(
+        self,
+        provider: DeepSeekProvider,
+        metrics: LlmMetricsCollector | None = None,
+    ) -> None:
         self._provider = provider
+        self._metrics = metrics
 
     def _stream_agent(
         self,
@@ -75,24 +82,35 @@ class LlmJudgeService:
         if max_tokens is not None:
             stream_kwargs["max_tokens"] = max_tokens
 
-        for chunk in self._provider.stream(**stream_kwargs):
-            if chunk.status:
-                yield from flush_pending()
-                yield {
-                    "type": "status",
-                    "agent": agent,
-                    "message": chunk.status,
-                }
-            if chunk.reasoning:
-                queue_text("reasoning", chunk.reasoning)
-            if chunk.content:
-                answer_parts.append(chunk.content)
-                queue_text("content", chunk.content)
-            if (
-                pending_text
-                and monotonic() - last_emit >= STREAM_UPDATE_INTERVAL_SECONDS
-            ):
-                yield from flush_pending()
+        recorder = self._metrics.start(agent) if self._metrics else None
+        try:
+            for chunk in self._provider.stream(**stream_kwargs):
+                if recorder:
+                    recorder.observe(chunk)
+                if chunk.status:
+                    yield from flush_pending()
+                    yield {
+                        "type": "status",
+                        "agent": agent,
+                        "message": chunk.status,
+                    }
+                if chunk.reasoning:
+                    queue_text("reasoning", chunk.reasoning)
+                if chunk.content:
+                    answer_parts.append(chunk.content)
+                    queue_text("content", chunk.content)
+                if (
+                    pending_text
+                    and monotonic() - last_emit >= STREAM_UPDATE_INTERVAL_SECONDS
+                ):
+                    yield from flush_pending()
+        except Exception as error:
+            if recorder:
+                recorder.finish(error)
+            raise
+        else:
+            if recorder:
+                recorder.finish()
 
         yield from flush_pending()
         yield {
@@ -120,6 +138,7 @@ class LlmJudgeService:
                 agent=agent,
                 system_prompt=JUDGE_EXPERT_INSTRUCTIONS[agent],
                 user_prompt=judge_expert_user_prompt(task, initial_answer),
+                max_tokens=JUDGE_MAX_TOKENS,
             ):
                 updates.put(update)
         except Exception as error:
@@ -145,6 +164,7 @@ class LlmJudgeService:
             agent="first",
             system_prompt=JUDGE_FIRST_AGENT_SYSTEM_PROMPT,
             user_prompt=judge_task_user_prompt(request.task),
+            max_tokens=JUDGE_MAX_TOKENS,
         ):
             if update["type"] == "complete":
                 initial_answer = str(update["answer"])
@@ -213,7 +233,7 @@ class LlmJudgeService:
                 expert_answers,
             ),
             response_format={"type": "json_object"},
-            max_tokens=4_000,
+            max_tokens=JUDGE_MAX_TOKENS,
         ):
             if update["type"] == "complete":
                 final_answer = str(update["answer"])
