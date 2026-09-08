@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 import os
 from typing import Any
@@ -38,8 +38,16 @@ class LlmStreamChunk:
 
 
 class DeepSeekProvider:
-    def __init__(self, client: OpenAI | None = None) -> None:
+    def __init__(
+        self,
+        client: OpenAI | None = None,
+        *,
+        model: str | None = None,
+        thinking_enabled: bool = True,
+    ) -> None:
         self._client = client
+        self._model = model
+        self._thinking_enabled = thinking_enabled
 
     def _get_client(self) -> OpenAI:
         if self._client is not None:
@@ -64,12 +72,29 @@ class DeepSeekProvider:
         max_tokens: int = DEFAULT_MAX_TOKENS,
         stream: bool = False,
     ) -> dict[str, Any]:
-        request: dict[str, Any] = {
-            "model": os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
-            "messages": [
+        return self._build_chat_request(
+            messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            response_format=response_format,
+            thinking_type=thinking_type,
+            max_tokens=max_tokens,
+            stream=stream,
+        )
+
+    def _build_chat_request(
+        self,
+        *,
+        messages: Sequence[dict[str, str]],
+        response_format: dict[str, Any] | None = None,
+        thinking_type: str,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+        stream: bool = False,
+    ) -> dict[str, Any]:
+        request: dict[str, Any] = {
+            "model": self._model or os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
+            "messages": list(messages),
             "max_tokens": max_tokens,
             "stream": stream,
             "extra_body": {"thinking": {"type": thinking_type}},
@@ -79,6 +104,38 @@ class DeepSeekProvider:
         if response_format is not None:
             request["response_format"] = response_format
         return request
+
+    def complete_chat(
+        self,
+        *,
+        messages: Sequence[dict[str, str]],
+        max_tokens: int = DEFAULT_MAX_TOKENS,
+    ) -> str:
+        thinking_type = "enabled" if self._thinking_enabled else "disabled"
+        request = self._build_chat_request(
+            messages=messages,
+            thinking_type=thinking_type,
+            max_tokens=max_tokens,
+        )
+        response = self._request_completion(request)
+        content, finish_reason = self._extract_content(response)
+        if content:
+            return content
+
+        if thinking_type == "enabled" and finish_reason != "content_filter":
+            fallback = self._build_chat_request(
+                messages=messages,
+                thinking_type="disabled",
+                max_tokens=max_tokens,
+            )
+            content, finish_reason = self._extract_content(
+                self._request_completion(fallback),
+            )
+            if content:
+                return content
+
+        reason = f" (finish_reason={finish_reason})" if finish_reason else ""
+        raise LlmRequestError(f"DeepSeek returned an empty response{reason}")
 
     def _request_completion(self, request: dict[str, Any]) -> Any:
         try:
