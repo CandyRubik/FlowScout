@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from threading import RLock
+from pathlib import Path
+import sqlite3
+from typing import Protocol
 from uuid import uuid4
 
-from ..agents.chat import ChatAgent, ModelMessage
+from ..agents.agent import Agent, AgentMessage
 from ..schemas import ChatMessage, ChatSendResponse, ChatSession, ChatSessionSummary
+
+
+DEFAULT_CHAT_DB_PATH = (
+    Path(__file__).resolve().parents[2] / "data" / "chat.sqlite3"
+)
 
 
 class ChatSessionNotFound(LookupError):
@@ -30,35 +39,152 @@ class StoredSession:
     messages: tuple[StoredMessage, ...] = ()
 
 
-class InMemoryChatSessionRepository:
-    """Process-local session storage; intentionally cleared on backend restart."""
+class ChatSessionRepository(Protocol):
+    def create(self) -> StoredSession: ...
 
-    def __init__(self) -> None:
-        self._sessions: dict[str, StoredSession] = {}
-        self._lock = RLock()
+    def list(self) -> list[StoredSession]: ...
+
+    def get(self, session_id: str) -> StoredSession: ...
+
+    def clear(self) -> None: ...
+
+    def append_exchange(
+        self,
+        session_id: str,
+        user_content: str,
+        assistant_content: str,
+    ) -> StoredSession: ...
+
+
+class SQLiteChatSessionRepository:
+    """Durable chat history isolated behind a repository boundary."""
+
+    def __init__(self, database_path: str | Path = DEFAULT_CHAT_DB_PATH) -> None:
+        self._database_path = Path(database_path)
+        self._database_path.parent.mkdir(parents=True, exist_ok=True)
+        self._initialize()
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self._database_path, timeout=10)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        return connection
+
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        connection = self._connect()
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
+    def _initialize(self) -> None:
+        with self._connection() as connection:
+            connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS chat_sessions (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id TEXT PRIMARY KEY,
+                    session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+                    position INTEGER NOT NULL,
+                    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+                    content TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE (session_id, position)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_chat_messages_session
+                ON chat_messages(session_id, position);
+                """,
+            )
+
+    @staticmethod
+    def _timestamp(value: datetime) -> str:
+        return value.isoformat()
+
+    @staticmethod
+    def _datetime(value: str) -> datetime:
+        return datetime.fromisoformat(value)
+
+    def _load_session(
+        self,
+        connection: sqlite3.Connection,
+        session_id: str,
+    ) -> StoredSession:
+        row = connection.execute(
+            "SELECT id, title, created_at, updated_at FROM chat_sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()
+        if row is None:
+            raise ChatSessionNotFound(session_id)
+
+        message_rows = connection.execute(
+            """
+            SELECT id, role, content, created_at
+            FROM chat_messages
+            WHERE session_id = ?
+            ORDER BY position
+            """,
+            (session_id,),
+        ).fetchall()
+        messages = tuple(
+            StoredMessage(
+                id=message["id"],
+                role=message["role"],
+                content=message["content"],
+                created_at=self._datetime(message["created_at"]),
+            )
+            for message in message_rows
+        )
+        return StoredSession(
+            id=row["id"],
+            title=row["title"],
+            created_at=self._datetime(row["created_at"]),
+            updated_at=self._datetime(row["updated_at"]),
+            messages=messages,
+        )
 
     def create(self) -> StoredSession:
         session_id = str(uuid4())
         now = datetime.now(timezone.utc)
-        session = StoredSession(session_id, "Новый чат", now, now)
-        with self._lock:
-            self._sessions[session_id] = session
-        return session
+        with self._connection() as connection:
+            connection.execute(
+                """
+                INSERT INTO chat_sessions (id, title, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (session_id, "Новый чат", self._timestamp(now), self._timestamp(now)),
+            )
+        return StoredSession(session_id, "Новый чат", now, now)
 
     def list(self) -> list[StoredSession]:
-        with self._lock:
-            return sorted(
-                self._sessions.values(),
-                key=lambda session: session.updated_at,
-                reverse=True,
-            )[:100]
+        with self._connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT id FROM chat_sessions
+                ORDER BY updated_at DESC
+                LIMIT 100
+                """,
+            ).fetchall()
+            return [self._load_session(connection, row["id"]) for row in rows]
 
     def get(self, session_id: str) -> StoredSession:
-        with self._lock:
-            try:
-                return self._sessions[session_id]
-            except KeyError as error:
-                raise ChatSessionNotFound(session_id) from error
+        with self._connection() as connection:
+            return self._load_session(connection, session_id)
+
+    def clear(self) -> None:
+        with self._connection() as connection:
+            connection.execute("DELETE FROM chat_sessions")
 
     def append_exchange(
         self,
@@ -67,28 +193,41 @@ class InMemoryChatSessionRepository:
         assistant_content: str,
     ) -> StoredSession:
         now = datetime.now(timezone.utc)
-        with self._lock:
-            session = self.get(session_id)
-            messages = session.messages + (
-                StoredMessage(str(uuid4()), "user", user_content, now),
-                StoredMessage(str(uuid4()), "assistant", assistant_content, now),
-            )
+        timestamp = self._timestamp(now)
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            session = self._load_session(connection, session_id)
+            position = len(session.messages)
             title = session.title
             if not session.messages:
                 title = user_content.replace("\n", " ").strip()[:60] or "Новый чат"
-            updated = StoredSession(
-                session.id,
-                title,
-                session.created_at,
-                now,
-                messages,
+
+            connection.executemany(
+                """
+                INSERT INTO chat_messages
+                    (id, session_id, position, role, content, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (str(uuid4()), session_id, position, "user", user_content, timestamp),
+                    (
+                        str(uuid4()), session_id, position + 1, "assistant",
+                        assistant_content, timestamp,
+                    ),
+                ],
             )
-            self._sessions[session_id] = updated
-            return updated
+            connection.execute(
+                "UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?",
+                (title, timestamp, session_id),
+            )
+
+        return self.get(session_id)
 
 
 class ChatSessionService:
-    def __init__(self, repository: InMemoryChatSessionRepository, agent: ChatAgent) -> None:
+    """Adapts persistent chat sessions to the storage-agnostic Agent."""
+
+    def __init__(self, repository: ChatSessionRepository, agent: Agent) -> None:
         self._repository = repository
         self._agent = agent
 
@@ -124,13 +263,16 @@ class ChatSessionService:
             messages=[self._message(message) for message in session.messages],
         )
 
+    def clear(self) -> None:
+        self._repository.clear()
+
     def send(self, session_id: str, content: str) -> ChatSendResponse:
         session = self._repository.get(session_id)
-        history: list[ModelMessage] = [
+        context: list[AgentMessage] = [
             {"role": message.role, "content": message.content}
             for message in session.messages
         ]
-        answer = self._agent.respond(history, content)
+        answer = self._agent.respond(context, content)
         updated = self._repository.append_exchange(session_id, content.strip(), answer)
         return ChatSendResponse(
             session=self._summary(updated),

@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from functools import lru_cache
 import json
 import logging
 import os
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from .agents.chat import AgentInputError, AgentOutputError, ChatAgent
+from .agents.agent import Agent, AgentInputError, AgentOutputError
 from .providers.deepseek import (
     DeepSeekProvider,
     LlmConfigurationError,
@@ -29,7 +30,8 @@ from .schemas import (
 from .services.chat_sessions import (
     ChatSessionNotFound,
     ChatSessionService,
-    InMemoryChatSessionRepository,
+    DEFAULT_CHAT_DB_PATH,
+    SQLiteChatSessionRepository,
 )
 from .services.experiment_settings import ExperimentSettingsStore
 from .services.llm_judge import JudgeUpdate, LlmJudgeService
@@ -40,7 +42,6 @@ from .services.role_analyzer import (
 
 
 logger = logging.getLogger(__name__)
-_chat_repository = InMemoryChatSessionRepository()
 _experiment_settings = ExperimentSettingsStore()
 
 
@@ -57,7 +58,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins(),
     allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT"],
+    allow_methods=["DELETE", "GET", "POST", "PUT"],
     allow_headers=["Content-Type"],
 )
 
@@ -70,19 +71,25 @@ def get_llm_judge_service() -> LlmJudgeService:
     return LlmJudgeService(DeepSeekProvider())
 
 
+@lru_cache(maxsize=1)
+def get_chat_repository() -> SQLiteChatSessionRepository:
+    database_path = os.getenv("CHAT_DB_PATH") or DEFAULT_CHAT_DB_PATH
+    return SQLiteChatSessionRepository(database_path)
+
+
 def get_chat_session_service() -> ChatSessionService:
     settings = _experiment_settings.get()
     model = DeepSeekProvider(
         model=settings.model,
         thinking_enabled=settings.thinking_enabled,
     )
-    agent = ChatAgent(
+    agent = Agent(
         model,
         system_prompt=settings.system_prompt,
         max_tokens=settings.max_tokens,
-        history_enabled=settings.history_enabled,
+        context_enabled=settings.history_enabled,
     )
-    return ChatSessionService(_chat_repository, agent)
+    return ChatSessionService(get_chat_repository(), agent)
 
 
 def _sse_event(event: str, payload: dict[str, Any]) -> str:
@@ -160,6 +167,14 @@ def list_chat_sessions(
     service: ChatSessionService = Depends(get_chat_session_service),
 ) -> list[ChatSessionSummary]:
     return service.list()
+
+
+@app.delete("/api/chat/sessions", status_code=204)
+def clear_chat_sessions(
+    service: ChatSessionService = Depends(get_chat_session_service),
+) -> Response:
+    service.clear()
+    return Response(status_code=204)
 
 
 @app.get("/api/chat/sessions/{session_id}", response_model=ChatSession)

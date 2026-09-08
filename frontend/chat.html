@@ -13,6 +13,7 @@
         <a class="brand" href="index.html"><span>✦</span> FlowScout</a>
         <button id="new-session" class="primary" type="button">＋ Новый чат</button>
         <nav id="sessions" aria-label="Сессии чата"></nav>
+        <button id="clear-database" class="danger" type="button">Очистить историю</button>
         <details class="debug-menu">
           <summary>⚙ Настройки эксперимента</summary>
           <form id="settings-form">
@@ -33,7 +34,7 @@
             </div>
           </form>
         </details>
-        <p class="memory-note">Сессии хранятся только до перезапуска backend.</p>
+        <p class="memory-note">История сохраняется и восстанавливается после перезапуска backend.</p>
       </aside>
 
       <section class="conversation" aria-labelledby="chat-title">
