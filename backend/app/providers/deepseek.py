@@ -105,7 +105,7 @@ class DeepSeekProvider:
             request["response_format"] = response_format
         return request
 
-    def complete_chat(
+    def generate(
         self,
         *,
         messages: Sequence[dict[str, str]],

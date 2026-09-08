@@ -75,7 +75,7 @@ def test_provider_uses_structured_analysis_defaults() -> None:
     }]
 
 
-def test_provider_forwards_chat_history() -> None:
+def test_provider_forwards_agent_context() -> None:
     completions = FakeCompletions(completion("Новый ответ"))
     client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
     provider = DeepSeekProvider(client=client)  # type: ignore[arg-type]
@@ -86,11 +86,11 @@ def test_provider_forwards_chat_history() -> None:
         {"role": "user", "content": "Продолжение"},
     ]
 
-    assert provider.complete_chat(messages=messages) == "Новый ответ"
+    assert provider.generate(messages=messages) == "Новый ответ"
     assert completions.requests[0]["messages"] == messages
 
 
-def test_chat_provider_can_disable_thinking() -> None:
+def test_agent_provider_can_disable_thinking() -> None:
     completions = FakeCompletions(completion("Ответ"))
     client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
     provider = DeepSeekProvider(
@@ -99,7 +99,7 @@ def test_chat_provider_can_disable_thinking() -> None:
         thinking_enabled=False,
     )
 
-    provider.complete_chat(messages=[{"role": "user", "content": "Вопрос"}])
+    provider.generate(messages=[{"role": "user", "content": "Вопрос"}])
 
     request = completions.requests[0]
     assert request["model"] == "deepseek-v4-pro"

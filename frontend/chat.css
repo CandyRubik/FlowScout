@@ -28,6 +28,8 @@ button, .brand { color: inherit; }
 .brand span, .empty > span { color: #9f8cff; }
 .primary { border: 0; border-radius: 12px; padding: 12px 16px; background: #7665e9; cursor: pointer; font-weight: 700; }
 .primary:hover:not(:disabled) { background: #8b7cf1; }
+.danger { border: 1px solid #713c4a; border-radius: 10px; padding: 9px 12px; color: #ffb8c4; background: #321b24; cursor: pointer; }
+.danger:hover:not(:disabled) { border-color: #a65367; background: #48212d; }
 button:disabled { opacity: 0.55; cursor: wait; }
 #sessions { display: grid; gap: 8px; overflow-y: auto; }
 .session { width: 100%; border: 1px solid transparent; border-radius: 10px; padding: 11px; overflow: hidden; background: transparent; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }

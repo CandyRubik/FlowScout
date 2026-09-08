@@ -6,6 +6,7 @@ const status = document.querySelector("#status");
 const form = document.querySelector("#message-form");
 const input = document.querySelector("#message-input");
 const newButton = document.querySelector("#new-session");
+const clearDatabaseButton = document.querySelector("#clear-database");
 const settingsForm = document.querySelector("#settings-form");
 const resetSettings = document.querySelector("#reset-settings");
 
@@ -30,7 +31,7 @@ async function api(path, options = {}) {
     const data = await response.json().catch(() => ({}));
     throw new Error(data.detail || "Backend не смог выполнить запрос");
   }
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
 function renderSettings(settings) {
@@ -64,6 +65,7 @@ function setBusy(value) {
   input.disabled = value;
   form.querySelector("button").disabled = value;
   newButton.disabled = value;
+  clearDatabaseButton.disabled = value;
   if (value) status.textContent = "Агент отвечает…";
 }
 
@@ -163,6 +165,26 @@ form.addEventListener("submit", async (event) => {
 });
 
 newButton.addEventListener("click", createSession);
+clearDatabaseButton.addEventListener("click", async () => {
+  if (busy || !window.confirm("Удалить все чат-сессии и сообщения без возможности восстановления?")) return;
+
+  setBusy(true);
+  try {
+    await api("/api/chat/sessions", { method: "DELETE" });
+    sessions = [];
+    currentSessionId = null;
+    title.textContent = "Новый чат";
+    renderSessions();
+    renderMessages([]);
+    status.textContent = "История очищена";
+  } catch (error) {
+    status.textContent = error.message;
+    return;
+  } finally {
+    setBusy(false);
+  }
+  await createSession();
+});
 settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {

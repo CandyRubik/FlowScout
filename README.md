@@ -9,8 +9,8 @@ FlowScout — сервис, который превращает описание
 финального n8n-пайплайна развивается как следующий продуктовый слой.
 
 Отдельная страница `chat.html` предоставляет обычный чат с несколькими
-изолированными сессиями. История хранится только в памяти backend-процесса и
-очищается при его перезапуске.
+изолированными сессиями. История хранится в SQLite и загружается обратно после
+перезапуска backend.
 Вкладка «Эксперименты» открывает отдельный чат. В его sidebar есть debug-раздел
 «Настройки эксперимента»: параметры модели, thinking,
 истории, лимита ответа и system prompt применяются к следующим сообщениям без
@@ -55,6 +55,7 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 export DEEPSEEK_MODEL="deepseek-v4-flash"
 export DEEPSEEK_BASE_URL="https://api.deepseek.com"
+export CHAT_DB_PATH="./data/chat.sqlite3"
 ```
 
 ## Запуск frontend
@@ -77,16 +78,41 @@ python3.13 -m http.server 3000 --directory frontend
   обратной совместимости;
 - `POST /api/llm-as-judge` — потоковая проверка одной задачи через первого
   агента, трёх экспертов и финального судью.
-- `POST /api/chat/sessions` — создать временную чат-сессию;
-- `GET /api/chat/sessions` — получить список сессий текущего процесса;
+- `POST /api/chat/sessions` — создать чат-сессию;
+- `GET /api/chat/sessions` — получить список сохранённых сессий;
+- `DELETE /api/chat/sessions` — удалить все сессии и сообщения;
 - `GET /api/chat/sessions/{id}` — получить историю одной сессии;
 - `POST /api/chat/sessions/{id}/messages` — отправить сообщение агенту.
 - `GET/PUT /api/debug/settings` — прочитать или изменить runtime-настройки чата.
 
-Чат реализован отдельной сущностью `ChatAgent`: она применяет input policy,
-вызывает внедрённый `ChatModel` и проверяет ответ через output policy.
+Универсальная сущность `Agent` принимает `context + current_message`, применяет
+input policy, вызывает внедрённую абстракцию `LanguageModel` и проверяет ответ
+через output policy. Агент не знает о чатах, HTTP, сессиях или SQLite.
+`ChatSessionService` загружает историю через `ChatSessionRepository` и адаптирует
+её к контексту агента. Реализация `SQLiteChatSessionRepository` атомарно сохраняет
+пары сообщений пользователя и ассистента; по умолчанию база находится в
+`backend/data/chat.sqlite3`, путь можно изменить через `CHAT_DB_PATH`.
 Vendor-specific HTTP-вызов изолирован в `DeepSeekProvider`; агент не зависит
 от API-ключа, URL или OpenAI-совместимого SDK.
+
+```mermaid
+flowchart LR
+    HTTP[Chat HTTP API] --> Service[ChatSessionService]
+    Service -->|load / save| Repository[ChatSessionRepository]
+    Repository --> SQLite[(SQLite)]
+    Service -->|context + current_message| Agent[Agent]
+    Agent --> Model[LanguageModel port]
+    DeepSeek[DeepSeekProvider] -. implements .-> Model
+    DeepSeek --> API[DeepSeek API]
+```
+
+## Демонстрация сохранения контекста
+
+Для видео проверки создайте чат и отправьте сообщение
+`Запомни: меня зовут Лена`. Остановите backend через `Ctrl+C`, снова запустите
+его той же командой, обновите страницу, откройте сохранённую сессию и спросите
+`Как меня зовут?`. Сессия и оба предыдущих сообщения загрузятся из SQLite, а
+новый запрос уйдёт агенту вместе с восстановленным контекстом.
 
 Пример запроса для legacy-ручки:
 
