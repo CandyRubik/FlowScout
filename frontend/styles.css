@@ -112,6 +112,12 @@ textarea:disabled {
   background: #10182b;
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 .brand {
   display: flex;
   align-items: center;

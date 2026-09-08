@@ -75,6 +75,38 @@ def test_provider_uses_structured_analysis_defaults() -> None:
     }]
 
 
+def test_provider_forwards_chat_history() -> None:
+    completions = FakeCompletions(completion("Новый ответ"))
+    client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    provider = DeepSeekProvider(client=client)  # type: ignore[arg-type]
+    messages = [
+        {"role": "system", "content": "system"},
+        {"role": "user", "content": "Первый вопрос"},
+        {"role": "assistant", "content": "Первый ответ"},
+        {"role": "user", "content": "Продолжение"},
+    ]
+
+    assert provider.complete_chat(messages=messages) == "Новый ответ"
+    assert completions.requests[0]["messages"] == messages
+
+
+def test_chat_provider_can_disable_thinking() -> None:
+    completions = FakeCompletions(completion("Ответ"))
+    client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    provider = DeepSeekProvider(
+        client=client,  # type: ignore[arg-type]
+        model="deepseek-v4-pro",
+        thinking_enabled=False,
+    )
+
+    provider.complete_chat(messages=[{"role": "user", "content": "Вопрос"}])
+
+    request = completions.requests[0]
+    assert request["model"] == "deepseek-v4-pro"
+    assert request["extra_body"] == {"thinking": {"type": "disabled"}}
+    assert "reasoning_effort" not in request
+
+
 def test_provider_retries_empty_response_without_thinking() -> None:
     completions = FakeCompletions(
         completion(""),

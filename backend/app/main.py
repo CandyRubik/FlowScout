@@ -10,12 +10,28 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from .agents.chat import AgentInputError, AgentOutputError, ChatAgent
 from .providers.deepseek import (
     DeepSeekProvider,
     LlmConfigurationError,
     LlmRequestError,
 )
-from .schemas import JudgeRequest, RoleAnalysisRequest, RoleAnalysisResponse
+from .schemas import (
+    ChatSendRequest,
+    ChatSendResponse,
+    ChatExperimentSettings,
+    ChatSession,
+    ChatSessionSummary,
+    JudgeRequest,
+    RoleAnalysisRequest,
+    RoleAnalysisResponse,
+)
+from .services.chat_sessions import (
+    ChatSessionNotFound,
+    ChatSessionService,
+    InMemoryChatSessionRepository,
+)
+from .services.experiment_settings import ExperimentSettingsStore
 from .services.llm_judge import JudgeUpdate, LlmJudgeService
 from .services.role_analyzer import (
     InvalidModelResponse,
@@ -24,6 +40,8 @@ from .services.role_analyzer import (
 
 
 logger = logging.getLogger(__name__)
+_chat_repository = InMemoryChatSessionRepository()
+_experiment_settings = ExperimentSettingsStore()
 
 
 def _allowed_origins() -> list[str]:
@@ -39,7 +57,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins(),
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT"],
     allow_headers=["Content-Type"],
 )
 
@@ -50,6 +68,21 @@ def get_role_analysis_service() -> RoleAnalysisService:
 
 def get_llm_judge_service() -> LlmJudgeService:
     return LlmJudgeService(DeepSeekProvider())
+
+
+def get_chat_session_service() -> ChatSessionService:
+    settings = _experiment_settings.get()
+    model = DeepSeekProvider(
+        model=settings.model,
+        thinking_enabled=settings.thinking_enabled,
+    )
+    agent = ChatAgent(
+        model,
+        system_prompt=settings.system_prompt,
+        max_tokens=settings.max_tokens,
+        history_enabled=settings.history_enabled,
+    )
+    return ChatSessionService(_chat_repository, agent)
 
 
 def _sse_event(event: str, payload: dict[str, Any]) -> str:
@@ -103,6 +136,63 @@ def health() -> dict[str, bool | str]:
         "status": "ok",
         "deepseek_configured": bool(os.getenv("DEEPSEEK_API_KEY")),
     }
+
+
+@app.get("/api/debug/settings", response_model=ChatExperimentSettings)
+def get_debug_settings() -> ChatExperimentSettings:
+    return _experiment_settings.get()
+
+
+@app.put("/api/debug/settings", response_model=ChatExperimentSettings)
+def update_debug_settings(settings: ChatExperimentSettings) -> ChatExperimentSettings:
+    return _experiment_settings.replace(settings)
+
+
+@app.post("/api/chat/sessions", response_model=ChatSession, status_code=201)
+def create_chat_session(
+    service: ChatSessionService = Depends(get_chat_session_service),
+) -> ChatSession:
+    return service.create()
+
+
+@app.get("/api/chat/sessions", response_model=list[ChatSessionSummary])
+def list_chat_sessions(
+    service: ChatSessionService = Depends(get_chat_session_service),
+) -> list[ChatSessionSummary]:
+    return service.list()
+
+
+@app.get("/api/chat/sessions/{session_id}", response_model=ChatSession)
+def get_chat_session(
+    session_id: str,
+    service: ChatSessionService = Depends(get_chat_session_service),
+) -> ChatSession:
+    try:
+        return service.get(session_id)
+    except ChatSessionNotFound:
+        raise HTTPException(status_code=404, detail="Chat session not found") from None
+
+
+@app.post(
+    "/api/chat/sessions/{session_id}/messages",
+    response_model=ChatSendResponse,
+)
+def send_chat_message(
+    session_id: str,
+    request: ChatSendRequest,
+    service: ChatSessionService = Depends(get_chat_session_service),
+) -> ChatSendResponse:
+    try:
+        return service.send(session_id, request.content)
+    except ChatSessionNotFound:
+        raise HTTPException(status_code=404, detail="Chat session not found") from None
+    except AgentInputError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    except (AgentOutputError, LlmRequestError):
+        logger.exception("Chat agent request failed")
+        raise HTTPException(status_code=502, detail="LLM request failed") from None
+    except LlmConfigurationError:
+        raise HTTPException(status_code=503, detail="DeepSeek API is not configured") from None
 
 
 @app.post("/api/role-analysis", response_model=RoleAnalysisResponse)

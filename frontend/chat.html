@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Чат с изолированным FlowScout-агентом" />
+    <title>FlowScout — чат</title>
+    <link rel="stylesheet" href="chat.css" />
+  </head>
+  <body>
+    <main class="chat-shell">
+      <aside class="sidebar">
+        <a class="brand" href="index.html"><span>✦</span> FlowScout</a>
+        <button id="new-session" class="primary" type="button">＋ Новый чат</button>
+        <nav id="sessions" aria-label="Сессии чата"></nav>
+        <details class="debug-menu">
+          <summary>⚙ Настройки эксперимента</summary>
+          <form id="settings-form">
+            <label>Модель
+              <input name="model" list="model-options" />
+              <datalist id="model-options">
+                <option value="deepseek-v4-flash"></option>
+                <option value="deepseek-v4-pro"></option>
+              </datalist>
+            </label>
+            <label class="check"><input name="thinking_enabled" type="checkbox" /> Thinking</label>
+            <label class="check"><input name="history_enabled" type="checkbox" /> История сессии</label>
+            <label>Max tokens<input name="max_tokens" type="number" min="128" max="8000" /></label>
+            <label>System prompt<textarea name="system_prompt" rows="4" maxlength="4000"></textarea></label>
+            <div class="debug-actions">
+              <button class="primary" type="submit">Применить</button>
+              <button id="reset-settings" type="button">Сбросить</button>
+            </div>
+          </form>
+        </details>
+        <p class="memory-note">Сессии хранятся только до перезапуска backend.</p>
+      </aside>
+
+      <section class="conversation" aria-labelledby="chat-title">
+        <header>
+          <div>
+            <p class="eyebrow">EXPERIMENTS / ISOLATED AGENT</p>
+            <h1 id="chat-title">Новый чат</h1>
+          </div>
+          <span id="status" role="status">Подключение…</span>
+        </header>
+
+        <div id="messages" class="messages" aria-live="polite">
+          <div class="empty">
+            <span>✦</span>
+            <h2>Чем помочь?</h2>
+            <p>Каждая сессия имеет собственную историю диалога.</p>
+          </div>
+        </div>
+
+        <form id="message-form">
+          <textarea
+            id="message-input"
+            rows="2"
+            maxlength="12000"
+            placeholder="Напишите сообщение…"
+            aria-label="Сообщение агенту"
+            required
+          ></textarea>
+          <button class="primary" type="submit">Отправить</button>
+        </form>
+      </section>
+    </main>
+    <script src="chat.js" defer></script>
+  </body>
+</html>

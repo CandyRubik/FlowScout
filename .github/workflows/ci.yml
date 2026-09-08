@@ -56,4 +56,4 @@ jobs:
           node-version: "20"
 
       - name: Check JavaScript syntax
-        run: node --check app.js
+        run: node --check app.js && node --check chat.js
